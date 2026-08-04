@@ -1,5 +1,5 @@
-export const DEFAULT_STREAM_CONNECT_TIMEOUT_MS = 30_000;
-export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 120_000;
+export const DEFAULT_STREAM_CONNECT_TIMEOUT_MS = 180_000;
+export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000;
 
 export type StreamWatchdogPhase = 'connect' | 'idle';
 
