@@ -148,7 +148,7 @@ export function connectionEnabledModelIds(connection: {
  * Applied when the user states a new enabled set. Dropping a model that
  * happens to be the default drops the default with it, rather than moving the
  * default to some other member of the set: which model a new chat starts on is
- * 设置 · 通用's one control, and picking a replacement here would answer that
+ * Settings > General's one control, and picking a replacement here would answer that
  * question on the user's behalf from a page that no longer asks it. The
  * connection is then simply not the workspace default — the readiness gate
  * reports `missing_model` for it, which is what it is.

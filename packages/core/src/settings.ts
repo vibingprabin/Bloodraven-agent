@@ -175,7 +175,7 @@ export interface AppearanceSettings {
  * contract-level decision.
  */
 export interface PersonalizationSettings {
-  /** How the assistant addresses the user. Empty falls back to "你". */
+  /** How the assistant addresses the user. Empty falls back to "you". */
   displayName: string;
   /** Inline tone preference shown to the model in its system prompt. */
   assistantTone: string;
@@ -229,13 +229,13 @@ export function isChatDefaultPermissionMode(value: unknown): value is ChatDefaul
   );
 }
 
-/** Seeds new sessions' starting permission mode (Settings → 通用 → 默认权限模式). */
+/** Seeds new sessions' starting permission mode (Settings → General → Default permission mode). */
 export interface ChatDefaultsSettings {
   permissionMode: ChatDefaultPermissionMode;
 }
 
 /**
- * Desktop OS notifications (Settings → 通用 → 通知). The runtime only
+ * Desktop OS notifications (Settings → General → Notifications). The runtime only
  * knows a turn ended from the renderer; the main process owns the focus
  * gate + native `Notification`, so this is a pure product on/off toggle.
  */
@@ -249,7 +249,7 @@ export interface NotificationSettings {
 }
 
 /**
- * System-level power behavior (Settings surface: the 定时任务 page's
+ * System-level power behavior (Settings surface: the Scheduled Tasks page's
  * capability row). Scheduled tasks are driven by an in-process timer; when
  * the machine sleeps, that timer is frozen and reminders silently never
  * fire. `keepSystemAwake` lets the user hold a power-save blocker so

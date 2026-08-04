@@ -303,7 +303,7 @@ function aggregateBy(logs: UsageStats['logs'], key: 'provider' | 'model') {
     .sort((a, b) => b.requests - a.requests) as never;
 }
 
-// Aggregate tool usage by tool name across EVERY session so 工具统计 shows one row
+// Aggregate tool usage by tool name across EVERY session so tool statistics shows one row
 // per tool (not one row per tool-per-session, which repeated the same tool name).
 // tool_call.id ↔ tool_result.toolUseId matching stays scoped to each session's
 // messages — ids are only unique within a session — while the counts, failures,

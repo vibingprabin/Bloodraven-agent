@@ -860,7 +860,7 @@ const providerRegistry = {
     catalogOrder: 6,
   },
   'MiniMax-cn': {
-    label: 'MiniMax 中国站',
+    label: 'MiniMax China',
     description: 'MiniMax M-series (China) over Anthropic-compatible protocol.',
     baseUrl: 'https://api.minimaxi.com/anthropic/v1',
     authKind: 'api_key',
@@ -1454,7 +1454,7 @@ const providerRegistry = {
     modelDiscovery: { kind: 'protocol', filter: 'fallback-models' },
     category: 'overseas',
     catalogGroup: 'aggregators',
-    catalogBadge: '聚合',
+    catalogBadge: 'aggregator',
     signupUrl: 'https://openrouter.ai/settings/keys',
     modelsDevId: openrouter.id,
     readyOrder: 40,

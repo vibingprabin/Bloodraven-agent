@@ -393,14 +393,14 @@ export function normalizePlanReminderDeliveryChatId(
 }
 
 export function formatPlanReminderDeliveryTarget(delivery: PlanReminderDeliveryTarget): string {
-  if (delivery.channel === 'local') return '本地提醒';
+  if (delivery.channel === 'local') return 'Local reminder';
   return `${botProviderLabel(delivery.platform)} · ${delivery.chatId}`;
 }
 
 export function formatPlanReminderDeliveryMessage(
   reminder: Pick<PlanReminder, 'title' | 'note'>,
 ): string {
-  const lines = [`计划提醒：${reminder.title}`];
+  const lines = [`Plan reminder: ${reminder.title}`];
   if (reminder.note.trim()) lines.push('', reminder.note.trim());
   return lines.join('\n');
 }
@@ -558,15 +558,15 @@ function botProviderLabel(provider: BotProvider): string {
     case 'telegram':
       return 'Telegram';
     case 'feishu':
-      return '飞书';
+      return 'Feishu';
     case 'wecom':
-      return '企业微信';
+      return 'WeCom';
     case 'wechat':
-      return '微信';
+      return 'WeChat';
     case 'discord':
       return 'Discord';
     case 'dingtalk':
-      return '钉钉';
+      return 'DingTalk';
     case 'qq':
       return 'QQ';
     case 'slack':

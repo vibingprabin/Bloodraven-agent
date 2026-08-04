@@ -23,22 +23,22 @@ interface QuietPreviewStrings {
   empty: string;
   done: string;
   notDone: string;
-  /** Format a replacement count, e.g. `3 处` / `3 replacements`. */
+  /** Format a replacement count, e.g. `3 replacements`. */
   replacements: (n: number) => string;
   written: string;
-  /** Format a byte count suffix, e.g. `共 7 字节` / `7 bytes`. */
+  /** Format a byte count suffix, e.g. `7 bytes`. */
   bytes: (n: number) => string;
 }
 
 const STRINGS_BY_LOCALE: Record<UiLocale, QuietPreviewStrings> = {
   zh: {
-    backgroundTerminal: '后台终端交互',
-    empty: '（空）',
-    done: '已完成',
-    notDone: '未完成',
-    replacements: (n) => `${n} 处`,
-    written: '已写入',
-    bytes: (n) => `共 ${n} 字节`,
+    backgroundTerminal: 'Background terminal interaction',
+    empty: '(empty)',
+    done: 'Done',
+    notDone: 'Not done',
+    replacements: (n) => `${n} replacement(s)`,
+    written: 'Written',
+    bytes: (n) => `${n} bytes`,
   },
   en: {
     backgroundTerminal: 'Background terminal interaction',

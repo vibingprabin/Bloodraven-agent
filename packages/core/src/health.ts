@@ -106,7 +106,7 @@ export function healthSignalFromConnection(
       status: 'info',
       source: 'settings',
       checkedAt,
-      message: '连接已关闭。',
+      message: 'Connection is disabled.',
       blocksSend: false,
     };
   }
@@ -120,7 +120,7 @@ export function healthSignalFromConnection(
       status: 'warning',
       source: 'settings',
       checkedAt,
-      message: '等待选择默认模型。',
+      message: 'Waiting for a default model to be selected.',
       blocksSend: true,
     };
   }
@@ -134,8 +134,8 @@ export function healthSignalFromConnection(
       status: 'ok',
       source: 'connection_test',
       checkedAt: timeFromIso(connection.lastTestAt) ?? checkedAt,
-      message: '凭据与端点验证已通过。',
-      detail: '这是连接验证结果，不代表发送、流式输出或中断通路已经运行通过。',
+      message: 'Credentials and endpoint verification passed.',
+      detail: 'This is a connection verification result; it does not mean sending, streaming, or the interrupted-turn path have run successfully.',
       blocksSend: false,
     };
   }
@@ -149,7 +149,7 @@ export function healthSignalFromConnection(
       status: 'error',
       source: 'connection_test',
       checkedAt: timeFromIso(connection.lastTestAt) ?? checkedAt,
-      message: '连接需要重新修复认证。',
+      message: 'Connection needs re-authorization.',
       detail: connection.lastTestMessage,
       blocksSend: true,
     };
@@ -164,7 +164,7 @@ export function healthSignalFromConnection(
       status: 'warning',
       source: 'connection_test',
       checkedAt: timeFromIso(connection.lastTestAt) ?? checkedAt,
-      message: '上次连接验证失败。',
+      message: 'Last connection verification failed.',
       detail: connection.lastTestMessage,
       blocksSend: true,
     };
@@ -178,7 +178,7 @@ export function healthSignalFromConnection(
     status: 'unknown',
     source: 'connection_test',
     checkedAt,
-    message: '等待验证连接。',
+    message: 'Waiting to verify the connection.',
     blocksSend: false,
   };
 }
@@ -193,14 +193,14 @@ export function healthSignalFromConnectionRuntime(
   if (!latestRuntimeProbe) {
     return {
       id: `connection:${connection.slug}:runtime`,
-      label: `${connection.name} 运行态`,
+      label: `${connection.name} runtime`,
       scope: 'llm_connection',
       layer: 'runtime_probe',
       status: 'unknown',
       source: 'runtime_probe',
       checkedAt,
-      message: '等待完成发送运行态探测。',
-      detail: '凭据验证与真实发送、流式输出、中断通路是两层健康信号。',
+      message: 'Waiting for a runtime send probe to complete.',
+      detail: 'Credential verification and real sending, streaming, and interrupted-turn paths are two layers of health signals.',
       blocksSend: false,
     };
   }
@@ -208,7 +208,7 @@ export function healthSignalFromConnectionRuntime(
   const status = runtimeStatusToHealth(latestRuntimeProbe.status);
   return {
     id: `connection:${connection.slug}:runtime`,
-    label: `${connection.name} 运行态`,
+    label: `${connection.name} runtime`,
     scope: 'llm_connection',
     layer: 'runtime_probe',
     status,
@@ -229,7 +229,7 @@ export function healthSignalFromConnectionRuntime(
     // After demote: runtime_probe still reports `status: 'warning'` on
     // historical error so the user sees the past failure in the Health
     // Center; the signal just no longer claims `blocksSend`. The
-    // HealthCenter "N 条 signal 会阻塞发送" pill correctly excludes it.
+    // HealthCenter "N signals blocking sends" pill correctly excludes it.
     //
     // No recency window is introduced — that would require a product
     // threshold ("how recent is recent enough?") which is out of scope
@@ -283,15 +283,15 @@ function healthLayerFromCapability(capability: CapabilitySnapshot): HealthSignal
 function capabilityMessage(readiness: CapabilityReadinessState): string {
   switch (readiness) {
     case 'enabled':
-      return '能力门禁已满足。';
+      return 'Capability gate is satisfied.';
     case 'paused':
-      return '能力已关闭或暂停。';
+      return 'Capability is turned off or paused.';
     case 'not_configured':
-      return '等待补齐能力配置。';
+      return 'Waiting for capability configuration.';
     case 'denied':
-      return '能力被必要系统权限阻塞。';
+      return 'Capability is blocked by a required system permission.';
     case 'degraded':
-      return '能力运行态探测处于降级状态。';
+      return 'Capability runtime probe is in a degraded state.';
   }
 }
 
@@ -306,15 +306,15 @@ function userVisibleCapabilityReason(reason: string | undefined): string | undef
   if (!raw) return undefined;
   switch (raw) {
     case 'disabled':
-      return '该能力当前已关闭。';
+      return 'This capability is currently turned off.';
     case 'missing platform credentials':
-      return '等待填写平台凭据。';
+      return 'Waiting for platform credentials to be filled in.';
     case 'macOS TCC only':
-      return '仅 macOS 系统权限可探测。';
+      return 'Only macOS system permissions can be probed.';
     case 'no Electron API for per-target Apple Events TCC status':
-      return '系统未提供可直接读取的授权状态。';
+      return 'The system does not expose a directly readable authorization status.';
     default:
-      return /[\u3400-\u9fff]/.test(raw) ? raw : '状态详情请见对应设置页。';
+      return /[\u3400-\u9fff]/.test(raw) ? raw : 'See the relevant settings page for status details.';
   }
 }
 
@@ -338,16 +338,16 @@ function runtimeStatusToHealth(status: UsageLogRow['status']): HealthSignalStatu
 function runtimeProbeMessage(status: UsageLogRow['status']): string {
   switch (status) {
     case 'success':
-      return '最近一次发送已完成。';
+      return 'The most recent send completed.';
     case 'aborted':
-      return '最近一次发送已由用户停止。';
+      return 'The most recent send was stopped by the user.';
     case 'error':
-      return '最近一次发送失败。';
+      return 'The most recent send failed.';
   }
 }
 
 function runtimeProbeDetail(row: UsageLogRow): string {
-  const parts = [`模型=${row.modelId}`, `延迟=${row.latencyMs}ms`];
-  if (row.errorClass) parts.push(`错误类型=${row.errorClass}`);
+  const parts = [`model=${row.modelId}`, `latency=${row.latencyMs}ms`];
+  if (row.errorClass) parts.push(`error=${row.errorClass}`);
   return parts.join(' · ');
 }

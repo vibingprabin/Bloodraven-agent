@@ -79,9 +79,9 @@ export function deriveProviderAuthContract(input: ProviderAuthContractInput): Pr
       sendMayUseWithoutSecret: false,
       actionAvailability: hiddenActions(),
       copy: {
-        label: `${input.providerType} 未知或已迁移`,
+        label: `${input.providerType} unknown or migrated`,
         detail:
-          '该连接使用的 provider 在当前版本未注册；配置会保留，切回支持它的版本即可继续使用。',
+          'The provider this connection uses is not registered in the current version; the configuration is kept, and using a version that supports it will work again.',
       },
     };
   }
@@ -100,8 +100,8 @@ export function deriveProviderAuthContract(input: ProviderAuthContractInput): Pr
       sendMayUseWithoutSecret: !providerAuthRequiresSecret(input.providerType),
       actionAvailability,
       copy: {
-        label: `${defaults.label} 已关闭`,
-        detail: '连接被显式关闭；不会作为发送默认连接，也不会触发凭据测试。',
+        label: `${defaults.label} turned off`,
+        detail: 'The connection is explicitly disabled; it will not be used as the default send connection or trigger credential tests.',
       },
     };
   }
@@ -142,8 +142,8 @@ export function deriveProviderAuthContract(input: ProviderAuthContractInput): Pr
         revoke_auth: 'preview_only',
       },
       copy: {
-        label: `${defaults.label} 账号登录预览`,
-        detail: '当前仅展示账号登录状态入口；普通模型密钥连接仍可在聊天模型中使用。',
+        label: `${defaults.label} account login preview`,
+        detail: 'Only the account-login status entry is shown for now; normal model-key connections can still be used as chat models.',
       },
     };
   }
@@ -182,8 +182,8 @@ export function deriveProviderAuthContract(input: ProviderAuthContractInput): Pr
         fetch_models: supportsModelDiscovery ? 'available' : 'hidden',
       },
       copy: {
-        label: `${defaults.label} 不需要凭据`,
-        detail: '此模型服务不需要密钥；可用性仍取决于本地服务和模型列表。',
+        label: `${defaults.label} no credentials needed`,
+        detail: 'This model service does not require a key; availability still depends on the local service and model list.',
       },
     };
   }
@@ -262,34 +262,34 @@ function copyForApiKey(label: string, state: ProviderAuthState): ProviderAuthCon
   switch (state) {
     case 'not_configured':
       return {
-        label: `${label} 等待模型密钥`,
-        detail: '保存凭据后才能测试连接或拉取模型列表。',
+        label: `${label} awaiting model key`,
+        detail: 'Save credentials before you can test the connection or fetch the model list.',
       };
     case 'validated':
       return {
-        label: `${label} 凭据验证通过`,
-        detail: '这只代表凭据和端点验证通过，不代表消息发送、流式响应或中断恢复已经运行可用。',
+        label: `${label} credentials verified`,
+        detail: 'This only means the credentials and endpoint verified; it does not mean message sending, streaming, or interrupted-turn recovery are working.',
       };
     case 'needs_reauth':
       return {
-        label: `${label} 需要重新授权`,
-        detail: '上次凭据测试显示鉴权失败；请替换凭据后重新测试。',
+        label: `${label} needs re-authorization`,
+        detail: 'The last credential test showed an auth failure; replace the credentials and test again.',
       };
     case 'error':
       return {
-        label: `${label} 凭据测试失败`,
-        detail: '上次测试未通过；详情必须使用概括后的错误信息，不展示服务商原始响应。',
+        label: `${label} credential test failed`,
+        detail: 'The last test did not pass; details must use generalized error information, not the provider\'s raw response.',
       };
     case 'configured':
       return {
-        label: `${label} 已保存凭据`,
-        detail: '凭据已保存，等待验证；测试通过前不要把它展示成运行可用。',
+        label: `${label} credentials saved`,
+        detail: 'Credentials are saved and awaiting verification; do not present them as working until the test passes.',
       };
     case 'disabled':
     case 'preview_only':
       return {
         label,
-        detail: '当前状态不走模型密钥凭据流程。',
+        detail: 'The current state does not use the model-key credential flow.',
       };
   }
 }
@@ -302,33 +302,33 @@ function copyForOptionalApiKey(
   switch (state) {
     case 'validated':
       return {
-        label: `${label} 连接验证通过`,
+        label: `${label} connection verified`,
         detail:
-          '这只代表实例端点和鉴权配置验证通过，不代表消息发送、流式响应或中断恢复已经运行可用。',
+          'This only means the instance endpoint and auth configuration verified; it does not mean message sending, streaming, or interrupted-turn recovery are working.',
       };
     case 'needs_reauth':
       return {
-        label: `${label} 需要重新授权`,
-        detail: '上次连接测试显示鉴权失败；请检查实例鉴权设置或可选模型密钥后重试。',
+        label: `${label} needs re-authorization`,
+        detail: 'The last connection test showed an auth failure; check the instance auth settings or the optional model key and retry.',
       };
     case 'error':
       return {
-        label: `${label} 连接测试失败`,
-        detail: '上次测试未通过；详情必须使用概括后的错误信息，不展示服务商原始响应。',
+        label: `${label} connection test failed`,
+        detail: 'The last test did not pass; details must use generalized error information, not the provider\'s raw response.',
       };
     case 'configured':
       return {
-        label: `${label} 可选模型密钥`,
+        label: `${label} optional model key`,
         detail: hasSecret
-          ? '已保存可选模型密钥；也可删除密钥连接未启用鉴权的实例。'
-          : '模型密钥可选；未启用鉴权的实例可直接连接。',
+          ? 'An optional model key is saved; you can also remove the key and connect to instances that do not enable auth.'
+          : 'The model key is optional; instances without auth enabled can connect directly.',
       };
     case 'not_configured':
     case 'disabled':
     case 'preview_only':
       return {
         label,
-        detail: '当前状态不走可选模型密钥流程。',
+        detail: 'The current state does not use the optional model-key flow.',
       };
   }
 }
@@ -337,34 +337,34 @@ function copyForOAuth(label: string, state: ProviderAuthState): ProviderAuthCont
   switch (state) {
     case 'not_configured':
       return {
-        label: `${label} 等待 OAuth 登录`,
-        detail: '完成账号登录后才能测试连接、拉取模型列表或用于聊天发送。',
+        label: `${label} awaiting OAuth login`,
+        detail: 'Finish the account login before you can test the connection, fetch the model list, or use it for chat sending.',
       };
     case 'validated':
       return {
-        label: `${label} OAuth 已验证`,
-        detail: '这只代表账号令牌和端点验证通过，不代表消息发送、流式响应或中断恢复已经运行可用。',
+        label: `${label} OAuth verified`,
+        detail: 'This only means the account token and endpoint verified; it does not mean message sending, streaming, or interrupted-turn recovery are working.',
       };
     case 'needs_reauth':
       return {
-        label: `${label} 需要重新登录`,
-        detail: '上次 OAuth 测试显示鉴权失败；请回到模型设置重新登录后再测试。',
+        label: `${label} needs re-login`,
+        detail: 'The last OAuth test showed an auth failure; go back to model settings and log in again before testing.',
       };
     case 'error':
       return {
-        label: `${label} OAuth 测试失败`,
-        detail: '上次测试未通过；详情必须使用概括后的错误信息，不展示服务商原始响应或账号令牌。',
+        label: `${label} OAuth test failed`,
+        detail: 'The last test did not pass; details must use generalized error information, not the provider\'s raw response or account token.',
       };
     case 'configured':
       return {
-        label: `${label} OAuth 已登录`,
-        detail: '账号令牌已保存，等待验证；测试通过前不要把它展示成运行可用。',
+        label: `${label} OAuth logged in`,
+        detail: 'The account token is saved and awaiting verification; do not present it as working until the test passes.',
       };
     case 'disabled':
     case 'preview_only':
       return {
         label,
-        detail: '当前状态不走 OAuth 账号流程。',
+        detail: 'The current state does not use the OAuth account flow.',
       };
   }
 }

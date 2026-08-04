@@ -165,18 +165,18 @@ class FileSettingsStore implements SettingsStore {
     const settings = await this.get();
     const proxy = settings.network.proxy;
     if (!proxy.enabled) {
-      return { ok: true, message: '代理未启用，当前会直接连接。', latencyMs: Date.now() - started };
+      return { ok: true, message: 'Proxy is disabled; connecting directly.', latencyMs: Date.now() - started };
     }
-    if (!proxy.host.trim()) return { ok: false, message: '代理服务器地址不能为空' };
+    if (!proxy.host.trim()) return { ok: false, message: 'Proxy server address cannot be empty' };
     if (!Number.isInteger(proxy.port) || proxy.port <= 0 || proxy.port > 65535) {
-      return { ok: false, message: '代理端口必须在 1-65535 之间' };
+      return { ok: false, message: 'Proxy port must be between 1-65535' };
     }
     if (proxy.authEnabled && (!proxy.username.trim() || !proxy.password)) {
-      return { ok: false, message: '启用代理认证后需要用户名和密码' };
+      return { ok: false, message: 'Proxy authentication requires a username and password' };
     }
     return {
       ok: true,
-      message: `代理配置有效：${proxy.protocol}://${proxy.host}:${proxy.port}`,
+      message: `Proxy configuration valid: ${proxy.protocol}://${proxy.host}:${proxy.port}`,
       latencyMs: Date.now() - started,
       details: { bypassList: proxy.bypassList, autoBypassDomains: proxy.autoBypassDomains },
     };

@@ -20,115 +20,115 @@ export const DEEP_RESEARCH_SESSION_LABEL = 'mode:deep_research';
 
 export const DEEP_RESEARCH_WORKFLOW_STEPS = [
   {
-    title: '先定位入口',
-    body: '读目录、配置、启动链路和测试入口，建立项目地图。',
+    title: 'Locate the entry points first',
+    body: 'Read directories, config, startup chain, and test entry points to build a project map.',
   },
   {
-    title: '再追数据流',
-    body: '沿关键模块、IPC、存储、权限和运行时边界追到真实实现。',
+    title: 'Then trace the data flow',
+    body: 'Follow key modules, IPC, storage, permission, and runtime boundaries to the real implementation.',
   },
   {
-    title: '然后对照参考',
-    body: '把可借鉴点拆成 borrow / diverge / risk / gate。',
+    title: 'Then compare against references',
+    body: 'Split borrowable points into borrow / diverge / risk / gate.',
   },
   {
-    title: '最后给可合入方案',
-    body: '输出文件清单、风险边界和验证命令，不在只读模式里动手改。',
+    title: 'Finally give a mergeable plan',
+    body: 'Output a file list, risk boundaries, and verification commands; do not modify files in read-only mode.',
   },
 ] as const;
 
 export const DEEP_RESEARCH_REPORT_SECTIONS = [
   {
-    title: '结论先行',
-    body: '用 3-5 条讲清楚真实现状、主要差距和优先建议。',
+    title: 'Conclusion first',
+    body: 'Use 3-5 points to state the real current state, main gaps, and priority recommendations.',
   },
   {
-    title: '源码证据',
-    body: '列出文件、函数、配置、测试和运行时路径，避免只给印象判断。',
+    title: 'Source evidence',
+    body: 'List files, functions, config, tests, and runtime paths instead of giving impression-based judgment.',
   },
   {
-    title: '借鉴拆解',
-    body: '每个可借鉴点都写 borrow / diverge / risk / gate。',
+    title: 'Borrow breakdown',
+    body: 'Write borrow / diverge / risk / gate for every borrowable point.',
   },
   {
-    title: '落地改进',
-    body: '给出按小步改进拆分的文件清单、边界和验证命令。',
+    title: 'Implementation improvements',
+    body: 'Give a file list, boundaries, and verification commands split into small-step improvements.',
   },
 ] as const;
 
 export const DEEP_RESEARCH_SCOPE_OPTIONS = [
   {
-    label: '快速',
-    body: '只扫入口、关键文件和最可能的数据流，适合已知范围的小问题。',
+    label: 'Quick',
+    body: 'Only scan entry points, key files, and the most likely data flow; suitable for small problems with a known scope.',
   },
   {
-    label: '标准',
-    body: '默认深度：梳理核心链路、相关测试和主要风险，再给落地建议。',
+    label: 'Standard',
+    body: 'Default depth: trace core paths, related tests, and main risks, then give implementation recommendations.',
   },
   {
-    label: '深挖',
-    body: '跨模块、参考项目和边界条件多轮追踪；只在用户明确要求时使用。',
+    label: 'Deep',
+    body: 'Multiple rounds of cross-module, reference-project, and boundary-condition tracing; use only when the user explicitly asks.',
   },
 ] as const;
 
 export const DEEP_RESEARCH_EVIDENCE_CHECKLIST = [
   {
-    title: '项目入口',
-    body: '先看 README、package/config、启动脚本和目录分层，确认真实运行方式。',
+    title: 'Project entry',
+    body: 'First read README, package/config, startup scripts, and directory layering to confirm how it actually runs.',
   },
   {
-    title: '核心链路',
-    body: '追 UI 入口、IPC/服务、存储、运行时调用和错误处理，不只看表面组件。',
+    title: 'Core path',
+    body: 'Trace the UI entry, IPC/services, storage, runtime calls, and error handling; do not just look at surface components.',
   },
   {
-    title: '边界条件',
-    body: '检查权限、隐身模式、token/路径暴露、失败重试和用户可见反馈。',
+    title: 'Boundary conditions',
+    body: 'Check permissions, incognito mode, token/path exposure, failure retries, and user-visible feedback.',
   },
   {
-    title: '验证证据',
-    body: '找对应测试、fixture、smoke 文档和可复现命令；缺口要明确标出来。',
+    title: 'Verification evidence',
+    body: 'Find the matching tests, fixtures, smoke docs, and reproducible commands; explicitly mark gaps.',
   },
 ] as const;
 
 export const DEEP_RESEARCH_PROGRESS_CHECKPOINTS = [
   {
-    title: '先建清单',
-    body: '研究范围超过三个相互关联的点时，先列出可核验的检查项再开始追代码。',
+    title: 'Build the checklist first',
+    body: 'When the research scope spans more than three interrelated points, list verifiable checks before tracing code.',
   },
   {
-    title: '标当前项',
-    body: '推进时明确当前正在验证哪一项，拿到证据后再进入下一项。',
+    title: 'Mark the current item',
+    body: 'Be explicit about which item is being verified; move to the next only after evidence is obtained.',
   },
   {
-    title: '记阻塞点',
-    body: '找不到源码、运行时或测试证据时标成 blocked，不用猜测补空白。',
+    title: 'Record blockers',
+    body: 'Mark items blocked when source, runtime, or test evidence cannot be found; do not fill gaps with guesses.',
   },
   {
-    title: '收敛方案',
-    body: '完成项必须汇总到 borrow / diverge / risk / gate 和可落地改进里。',
+    title: 'Converge the plan',
+    body: 'Completed items must be consolidated into borrow / diverge / risk / gate and actionable improvements.',
   },
 ] as const;
 
 export const DEEP_RESEARCH_STARTER_PROMPTS = [
   {
-    label: '研究一个参考项目',
+    label: 'Research a reference project',
     prompt:
-      '请只读研究这个项目：先梳理目录结构、核心模块、启动链路、数据流和测试入口，然后列出我们可以借鉴的功能设计、需要规避的风险，以及可落地到 Maka 的改进顺序。',
+      'Please read-only research this project: first map the directory structure, core modules, startup chain, data flow, and test entry points, then list the feature designs we can borrow, risks to avoid, and an improvement order that lands in Maka.',
   },
   {
-    label: '完整读一遍参考项目',
+    label: 'Read a reference project fully',
     prompt:
-      '请按深挖范围只读研究这个参考项目：先建立目录和模块地图，再逐层读核心功能、运行时、存储、权限、UI、测试和文档；每个可借鉴点都按 borrow / diverge / risk / gate 输出，并给出 Maka 的落地改进顺序。',
+      'Please read-only research this reference project at deep scope: build a directory and module map first, then read core features, runtime, storage, permissions, UI, tests, and docs layer by layer; output every borrowable point as borrow / diverge / risk / gate and give an improvement order for Maka.',
   },
   {
-    label: '对比一个功能实现',
+    label: 'Compare one feature implementation',
     prompt:
-      '请只读对比这个功能在参考项目和 Maka 里的实现差异：指出关键文件、运行时边界、UI 入口、持久化方式、测试覆盖，以及最小可合入的改进方案。',
+      'Please read-only compare how this feature is implemented in the reference project and in Maka: point out the key files, runtime boundaries, UI entry, persistence, test coverage, and the smallest mergeable improvement.',
   },
   {
-    label: '做一次安全边界审计',
+    label: 'Do a security-boundary audit',
     prompt:
-      '请只读审计这个功能的安全边界：权限、token/密钥流、IPC/renderer 暴露、文件路径、隐私模式、日志与 telemetry。输出 blocking 风险和对应 contract test。',
+      'Please read-only audit this feature\'s security boundary: permissions, token/key flow, IPC/renderer exposure, file paths, privacy mode, logging, and telemetry. Output blocking risks and the corresponding contract test.',
   },
 ] as const;
 
@@ -208,7 +208,7 @@ export function buildDeepResearchSystemPromptFragment(): string {
     '',
     'Research scope budget:',
     ...DEEP_RESEARCH_SCOPE_OPTIONS.map((option) => `- ${option.label}: ${option.body}`),
-    '- If the user does not specify a scope, use 标准. Use 深挖 only when the user explicitly asks for deep / exhaustive / full-project research.',
+    '- If the user does not specify a scope, use Standard. Use Deep only when the user explicitly asks for deep / exhaustive / full-project research.',
     '',
     'Evidence checklist:',
     ...DEEP_RESEARCH_EVIDENCE_CHECKLIST.map((item) => `- ${item.title}: ${item.body}`),

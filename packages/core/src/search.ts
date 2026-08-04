@@ -278,13 +278,13 @@ export function rewriteSearchQueryForFreshness(query: string, now: Date): string
 }
 
 function hasFreshnessIntent(query: string): boolean {
-  return /\b(today|latest|this year|current year|now|recent|breaking)\b|今天|最新|今年|当前年份|最近|近日/i.test(
+  return /\b(today|latest|this year|current year|now|recent|breaking)\b/i.test(
     query,
   );
 }
 
 function hasHistoricalIntent(query: string): boolean {
-  return /\b(history|historical|archive|from|since|during|between|retrospective)\b|历史|回顾|档案|过去|往年/i.test(
+  return /\b(history|historical|archive|from|since|during|between|retrospective)\b/i.test(
     query,
   );
 }

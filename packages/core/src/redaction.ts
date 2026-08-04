@@ -211,7 +211,7 @@ export function generalizedErrorMessage(error: unknown, fallback = 'Operation fa
  *
  * The fallback default is also Chinese so callers that don't supply
  * one still produce a Chinese-only result. Pass a more specific
- * Chinese fallback (e.g. "会话已创建但发送失败，请重试。") for better
+ * Chinese fallback (e.g. "session created but sending failed, retry") for better
  * UX when the classifier can't categorize.
  */
 export function generalizedErrorMessageChinese(error: unknown, fallback = '操作失败'): string {

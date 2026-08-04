@@ -183,8 +183,8 @@ class FileConnectionStore implements ConnectionStore {
       file.connections[index] = next;
       // The workspace default is the pair {connection, model}. A connection
       // that is disabled, or that no longer has a default model, cannot supply
-      // half of it — leaving the slug behind showed a "默认" badge next to a
-      // picker that read 未设置.
+      // half of it — leaving the slug behind showed a "default" badge next to a
+      // picker that read unset.
       if (file.defaultSlug === slug && (next.enabled === false || !next.defaultModel)) {
         file.defaultSlug = null;
       }
@@ -240,7 +240,7 @@ class FileConnectionStore implements ConnectionStore {
       // default model supplies only half of it, so it cannot keep the slug.
       // Without this an OAuth resync re-pointed the workspace default at a
       // connection whose model list the user had just emptied, and the list
-      // showed a 默认 badge over 未设置.
+      // showed a default badge over unset.
       if (file.defaultSlug === connection.slug && (next.enabled === false || !next.defaultModel)) {
         file.defaultSlug = null;
       }
@@ -366,7 +366,7 @@ function normalizeDefaultSlug(
   const connection = connections.find((item) => item.slug === defaultSlug);
   // Same pair rule as the write paths, applied to whatever is already on disk:
   // a file written before they enforced it can still point at a connection with
-  // no default model, and that reads back as a 默认 badge over 未设置.
+  // no default model, and that reads back as a default badge over unset.
   if (!connection || connection.enabled === false || !connection.defaultModel) return null;
   return connection.slug;
 }

@@ -35,7 +35,7 @@ export type OAuthSubscriptionProvider = 'claude-subscription';
  */
 export type OAuthSubscriptionRuntimeState =
   | 'not_logged_in' // no token file present
-  | 'authorizing' // user clicked "登录", browser open, awaiting paste-code
+  | 'authorizing' // user clicked "Login", browser open, awaiting paste-code
   | 'authenticated' // tokens valid; not yet proven operational
   | 'refreshing' // refresh attempt in flight
   | 'refresh_failed' // refresh errored; user must re-login (token file NOT auto-deleted per kenji)
@@ -67,8 +67,8 @@ export interface SubscriptionAccountProfile {
  * fabricate `tokens used` / `window size` numbers since the
  * endpoint doesn't return them — kenji `cf41871b` decision #4.
  *
- * `fetchedAt` is included so the UI can render staleness ("配额
- * 数据 5 分钟前更新").
+ * `fetchedAt` is included so the UI can render staleness ("quota
+ * data updated 5 minutes ago").
  */
 export interface QuotaWindow {
   /** Utilization 0-100 (percentage). */
@@ -307,7 +307,7 @@ export function constantTimeStringEqual(a: string, b: string): boolean {
 /**
  * Default TTL for a pending PKCE authorization (10 minutes). The
  * user has to:
- *   1. Click `登录订阅`.
+ *   1. Click `Sign in to subscription`.
  *   2. Sign in on claude.ai.
  *   3. Copy the redirect code.
  *   4. Paste it back into Maka.

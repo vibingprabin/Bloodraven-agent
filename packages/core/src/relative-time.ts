@@ -7,15 +7,15 @@
  *
  * The formatter is pure (takes an optional `now` so tests do not have
  * to monkey-patch `Date.now`). Buckets are intentionally narrow at the
- * short end (second / minute / hour) so users see "刚刚" become
- * "1 分钟前" promptly, then widen to days. Anything older than ~7 days
+ * short end (second / minute / hour) so users see "just now" become
+ * "1 minute ago" promptly, then widen to days. Anything older than ~7 days
  * falls back to an absolute date so we do not produce misleadingly
- * round numbers like "5 个月前".
+ * round numbers like "5 months ago".
  *
  * The threshold is a deliberate divergence from the previous
  * implementation, which used `.format(-Math.round(diffHours / 24), 'day')`
  * for ALL timestamps older than a day and produced things like
- * "300 天前" for messages a year old. That was strictly less useful than
+ * "300 days ago" for messages a year old. That was strictly less useful than
  * the locale date string.
  */
 
@@ -52,11 +52,11 @@ function getAbsoluteFormat(uiLocale: UiLocale): Intl.DateTimeFormat {
 }
 
 /**
- * Returns a localized relative label for `ts` (e.g. "1 分钟前", "1 hour ago")
+ * Returns a localized relative label for `ts` (e.g. "1 minute ago", "1 hour ago")
  * when within `RELATIVE_HORIZON_MS`, otherwise the absolute date string.
  *
  * `now` is injectable so tests can pin a deterministic clock. Future
- * timestamps (`ts > now`) are clamped to the smallest "刚刚" bucket — we
+ * timestamps (`ts > now`) are clamped to the smallest "just now" bucket — we
  * don't want sidebar rows showing "in 2 minutes" when a tab's clock
  * drifts.
  */
@@ -67,7 +67,7 @@ export function formatRelativeTimestamp(
 ): string {
   const diffMs = now - ts;
   if (diffMs < 0) {
-    // Clock skew or future-dated record. Snap to "刚刚".
+    // Clock skew or future-dated record. Snap to "just now".
     return getRelativeFormat(locale).format(-1, 'second');
   }
   if (diffMs > RELATIVE_HORIZON_MS) {
@@ -117,9 +117,9 @@ function getCompactFormats(uiLocale: UiLocale): {
 /**
  * Compact variant for space-starved rows (sidebar session list): same
  * relative buckets inside the 7-day horizon, then a DATE-ONLY label —
- * "6月20日" within the current year, "2025年6月20日" across years.
+ * "Jun 20" within the current year, "Jun 20 2025" across years.
  * `formatRelativeTimestamp`'s medium-date + time fallback
- * ("2026年6月20日 16:33") is right for wide surfaces but crushed the
+ * ("Jun 20 2026 16:33") is right for wide surfaces but crushed the
  * session title next to it to ~2 characters. Minute precision belongs
  * in tooltips/detail surfaces, not scan-level list rows.
  */

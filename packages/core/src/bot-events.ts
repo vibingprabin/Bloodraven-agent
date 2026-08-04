@@ -12,7 +12,7 @@ export interface BotAttachmentRef {
 /**
  * PR-BOT-NON-TEXT-MESSAGE-ACK-0 (external bot research): the kind of non-text
  * payload Telegram delivered alongside (or instead of) text. Used so
- * the handler can send a helpful "Maka 现在只读文字" ack instead of
+ * the handler can send a helpful "Maka only reads text now" ack instead of
  * silently dropping a photo / voice / sticker message. NOT a request
  * to ingest the binary — Maka does not yet have multi-modal input.
  *
@@ -58,20 +58,20 @@ export interface BotMessageEvent {
 export function nonTextMessageAck(kind: BotAttachmentKind): string {
   switch (kind) {
     case 'photo':
-      return 'Maka 目前只能读文字。如果想问关于这张图的问题，请把内容直接写出来（caption 里也可以）。';
+      return 'Maka can only read text right now. If you want to ask about this image, please write out its content directly (the caption works too).';
     case 'voice':
     case 'audio':
-      return 'Maka 目前不能识别语音消息。请把要问的内容用文字发过来。';
+      return 'Maka cannot recognize voice messages yet. Please send the content you want to ask about as text.';
     case 'sticker':
-      return 'Maka 目前不会处理贴纸。如果有问题，请直接用文字描述。';
+      return 'Maka does not process stickers. If you have a question, please describe it in text.';
     case 'video':
     case 'animation':
-      return 'Maka 目前不会处理视频。如果想讨论视频内容，请把要点用文字写一下。';
+      return 'Maka does not process videos yet. If you want to discuss the video content, please write out the key points as text.';
     case 'document':
-      return 'Maka 目前不能直接读取附件文件。如果文件里有问题，请把内容粘到消息里。';
+      return 'Maka cannot read attached files directly. If the file has a question, please paste the content into the message.';
     case 'unknown':
     default:
-      return 'Maka 目前只能处理文字消息。请把要问的内容用文字发过来。';
+      return 'Maka can only handle text messages. Please send the content you want to ask about as text.';
   }
 }
 
@@ -80,15 +80,15 @@ export function botDisplayLabel(platform: BotPlatform): string {
     case 'telegram':
       return 'Telegram';
     case 'feishu':
-      return '飞书';
+      return 'Feishu';
     case 'wecom':
-      return '企业微信';
+      return 'WeCom';
     case 'wechat':
-      return '微信';
+      return 'WeChat';
     case 'discord':
       return 'Discord';
     case 'dingtalk':
-      return '钉钉';
+      return 'DingTalk';
     case 'qq':
       return 'QQ';
     case 'slack':
@@ -144,11 +144,11 @@ export const BOT_PLAINTEXT_RESET_COMMANDS: ReadonlyArray<string> = Object.freeze
   '/new',
   '/newchat',
   'new chat',
-  '重启',
-  '重置',
-  '重新开始',
-  '新对话',
-  '新会话',
+  'restart',
+  'reset',
+  'start over',
+  'new chat',
+  'new session',
 ]);
 
 export function isPlaintextResetCommand(
@@ -176,8 +176,8 @@ export const BOT_PLAINTEXT_HELP_COMMANDS: ReadonlyArray<string> = Object.freeze(
   '/help',
   '?',
   '/?',
-  '帮助',
-  '/帮助',
+  'help',
+  '/help',
 ]);
 
 export function isPlaintextHelpCommand(
@@ -191,12 +191,12 @@ export function isPlaintextHelpCommand(
 
 export function plaintextHelpReply(): string {
   return [
-    'Maka 机器人帮助',
+    'Maka bot help',
     '',
-    '· 直接发文字消息就能和 Maka 对话；回复会挂在你的提问下面。',
-    '· 想清空当前对话开新会话，发：restart / reset / 重置 / 重启 / 新对话。',
-    '· 群里不响应 plaintext 重置指令（避免一个成员把整群对话清掉）。',
-    '· 长回复会自动拆成多条，第一条挂在你的提问下面。',
+    '· Send text messages directly to chat with Maka; replies are threaded under your question.',
+    '· To clear the current conversation and start a new session, send: restart / reset / new chat.',
+    '· Plaintext reset commands do not work in groups (to avoid one member clearing the whole group conversation).',
+    '· Long replies are split into multiple messages, with the first one threaded under your question.',
   ].join('\n');
 }
 
@@ -233,10 +233,10 @@ function sanitizeBotUserName(value: string): string {
  * description is typically well under 80 chars.
  */
 const BOT_REASON_HUMANIZE: Record<string, string | undefined> = {
-  'rate-limited': '发送被节流（429）；上一条回复可能截断，可以请用户再发一次',
-  'polling-timeout': '事件轮询超时；可能是网络抖动或代理失效',
-  'send-failed': '上一次发送失败，详细原因 Telegram 没有返回',
-  'get-me-failed': '凭据探测失败；请检查 Bot Token',
+  'rate-limited': 'Sending was rate-limited (429); the previous reply may have been truncated; ask the user to send again',
+  'polling-timeout': 'Event polling timed out; possibly a network blip or a dead proxy',
+  'send-failed': 'The last send failed; Telegram did not return a reason',
+  'get-me-failed': 'Credential probe failed; check the Bot Token',
   // Non-error states surface elsewhere in the UI — return undefined so
   // we do not overwrite a real lastError with a benign status change.
   disabled: undefined,
@@ -260,14 +260,14 @@ const BOT_REASON_HUMANIZE: Record<string, string | undefined> = {
  * code is preserved verbatim so support diagnostics still survive.
  */
 const BOT_REASON_HUMANIZE_PATTERNS: Array<{ pattern: RegExp; format: (code: string) => string }> = [
-  { pattern: /^gateway-bot-(\d+)$/, format: (code) => `获取 Gateway 失败（HTTP ${code}）` },
-  { pattern: /^gateway-closed-(\d+)$/, format: (code) => `Gateway 连接关闭（${code}）；正在重连` },
-  { pattern: /^connections-open-(\d+)$/, format: (code) => `Stream 订阅打开失败（HTTP ${code}）` },
-  { pattern: /^stream-closed-(\d+)$/, format: (code) => `Stream 连接关闭（${code}）；正在重连` },
-  { pattern: /^send-failed-(\d+)$/, format: (code) => `发送失败（HTTP ${code}）` },
+  { pattern: /^gateway-bot-(\d+)$/, format: (code) => `Failed to get Gateway (HTTP ${code})` },
+  { pattern: /^gateway-closed-(\d+)$/, format: (code) => `Gateway connection closed (${code}); reconnecting` },
+  { pattern: /^connections-open-(\d+)$/, format: (code) => `Failed to open Stream subscription (HTTP ${code})` },
+  { pattern: /^stream-closed-(\d+)$/, format: (code) => `Stream connection closed (${code}); reconnecting` },
+  { pattern: /^send-failed-(\d+)$/, format: (code) => `Send failed (HTTP ${code})` },
   {
     pattern: /^getAppAccessToken-(\d+)$/,
-    format: (code) => `获取 access_token 失败（HTTP ${code}）`,
+    format: (code) => `Failed to get access_token (HTTP ${code})`,
   },
 ];
 

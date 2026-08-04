@@ -5,7 +5,7 @@
  * `SessionHeader.name` is the title users see in the sidebar list,
  * tab headers, and any future export/share surfaces. It's
  * user-typed (sidebar inline rename) or runtime-derived (default
- * "New Chat", branch "${parent} · 分支") — both paths need the
+ * "New Chat", branch "${parent} · branch") — both paths need the
  * same gate so the store only ever sees safe text.
  *
  * The contract is **a single pure helper** in this `@maka/core`

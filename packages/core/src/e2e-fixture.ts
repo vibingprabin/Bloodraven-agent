@@ -12,8 +12,8 @@ export type E2eFixtureScenario =
   | 'fetched-empty'
   | 'connection-error'
   // OAuth re-login: seeds a openai-codex (OAuth) connection that last
-  // tested needs_reauth and focuses its detail sheet, so the inline 登录 /
-  // 重新登录 affordance the detail sheet gained is visible where an expired
+  // tested needs_reauth and focuses its detail sheet, so the inline Login /
+  // Re-login affordance the detail sheet gained is visible where an expired
   // OAuth login must be re-run — the surface that used to be dead prose.
   | 'oauth-relogin'
   | 'turn-narrative'
@@ -31,7 +31,7 @@ export type E2eFixtureScenario =
   // that let the "streaming markdown sits ~110px too far left" bug ship.
   | 'streaming-answer'
   // #646 real-time status language: a running session whose turn is armed with
-  // nothing streaming yet — the "正在处理…" model-wait indicator rides the tail
+  // nothing streaming yet — the "processing…" model-wait indicator rides the tail
   // turn and the composer shows Stop. Locks the connect-to-first-token state.
   | 'model-processing'
   | 'sandbox-boundary'
@@ -45,7 +45,7 @@ export type E2eFixtureScenario =
   // #1233 deferral: the bot QR-onboarding modal (bot-onboarding-modal.tsx)
   // had no deterministic capture because a real device-code start contacts an
   // external IM platform and the QR + TTL drift every run. This scenario opens
-  // Settings → 远程接入 → a bot detail with the scan-login modal auto-opened,
+  // Settings → Remote Access → a bot detail with the scan-login modal auto-opened,
   // backed by an e2e-fixture adapter that holds the 'waiting' state with a
   // FIXED QR + long TTL, so the modal's waiting layout renders deterministically.
   | 'settings-bots-onboarding'
@@ -203,7 +203,7 @@ export interface E2eFixtureState {
    */
   composerText?: string;
   /**
-   * When set, open Settings → 模型 with this connection's detail sheet
+   * When set, open Settings → Models with this connection's detail sheet
    * expanded (rather than just the section). Seeded by `oauth-relogin` so the
    * detail sheet's re-login affordance is what gets exposed; takes
    * precedence over `openSettingsSection`.
@@ -310,7 +310,7 @@ export interface E2eFixtureState {
   workbarTab?: 'tasks' | 'browser' | 'files';
   /**
    * #1233 deferral — bot QR-onboarding modal fixture. When set, the Settings
-   * 远程接入 page (bot-chat-settings-page) opens the given provider's detail
+   * Remote Access page (bot-chat-settings-page) opens the given provider's detail
    * view and auto-opens its scan-login modal at mount, so the deterministic
    * waiting-state QR fixture is what the alignment audit sees. Only the
    * `settings-bots-onboarding` scenario sets this; real users never receive an

@@ -224,7 +224,7 @@ export interface LocalMemoryEntryDraft {
 
 export const LOCAL_MEMORY_MAX_BYTES = 128 * 1024;
 export const LOCAL_MEMORY_PROMPT_MAX_CHARS = 12_000;
-export const LOCAL_MEMORY_PROMPT_TRUNCATION_MARKER = '[本地记忆已按长度截断]';
+export const LOCAL_MEMORY_PROMPT_TRUNCATION_MARKER = '[local memory truncated by length]';
 
 export interface LocalMemoryPromptContext {
   readonly sessionId?: string;
@@ -256,12 +256,12 @@ export function normalizeLocalMemorySettings(input: unknown): LocalMemorySetting
 
 export function defaultLocalMemoryMarkdown(now = Date.now()): string {
   const exampleContent =
-    '这里写你希望 Maka 记住的长期偏好。默认不会注入给 agent；需要在设置里单独开启“agent 可读取本地记忆”。';
+    'Write long-term preferences you want Maka to remember here. This is not injected into the agent by default; you need to enable "agent can read local memory" in settings.';
   const exampleId = stableLocalMemoryEntryId(exampleContent, now);
   return [
     '# Maka Memory',
     '',
-    '## 示例：我的偏好',
+    '## Example: my preferences',
     `<!-- maka-memory: id=${exampleId} origin=manual createdAt=${now} -->`,
     exampleContent,
     '',
@@ -581,7 +581,7 @@ export function findLocalMemoryEntryDraftRange(
     if (heading) {
       const matched = matchCurrent(index);
       if (matched) return matched;
-      current = { title: heading[1] ?? '未命名记忆', headingLineIndex: index };
+      current = { title: heading[1] ?? 'Untitled memory', headingLineIndex: index };
       continue;
     }
     if (!current || current.meta) continue;
@@ -685,7 +685,7 @@ function parseLocalMemoryMarkdownRaw(input: string): LocalMemoryRawParseResult {
     const heading = /^##\s+(.+?)\s*$/.exec(line);
     if (heading) {
       flush();
-      current = { title: heading[1] ?? '未命名记忆', body: [] };
+      current = { title: heading[1] ?? 'Untitled memory', body: [] };
       continue;
     }
     if (!current) continue;
@@ -763,7 +763,7 @@ function findLocalMemoryEntrySection(
     if (heading) {
       const matched = matchCurrent();
       if (matched) return matched;
-      current = { title: heading[1] ?? '未命名记忆', headingLineIndex: index };
+      current = { title: heading[1] ?? 'Untitled memory', headingLineIndex: index };
       continue;
     }
     if (!current || current.meta) continue;
@@ -828,7 +828,7 @@ function findLocalMemoryEntryFullSection(
     if (heading) {
       const matched = matchCurrent(index);
       if (matched) return matched;
-      current = { title: heading[1] ?? '未命名记忆', headingLineIndex: index, body: [] };
+      current = { title: heading[1] ?? 'Untitled memory', headingLineIndex: index, body: [] };
       continue;
     }
     if (!current) continue;

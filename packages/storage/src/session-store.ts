@@ -2139,7 +2139,7 @@ function lastMessagePreviewForMessages(messages: StoredMessage[]): string | unde
       // envelope (e.g. explicit skill invocation).
       const text = normalizePreviewText(message.displayText ?? message.text);
       if (text) return truncatePreview(text);
-      if (message.attachments && message.attachments.length > 0) return '附件';
+      if (message.attachments && message.attachments.length > 0) return 'attachments';
     }
     if (message.type === 'assistant') {
       const text = normalizePreviewText(message.text);

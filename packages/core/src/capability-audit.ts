@@ -160,15 +160,15 @@ function localSkillSource(
   const hasSkills = skillCount > 0;
   return {
     slug: LOCAL_SKILL_SOURCE_SLUG,
-    name: '工作区 skills 目录',
+    name: 'Workspace skills directory',
     type: 'local',
     enabled: hasSkills,
     authType: 'none',
     scopeSummary: hasSkills
-      ? [`${skillCount} 个本地 Skill`, `${declaredToolKindCount} 类声明工具`]
-      : ['等待添加本地 Skill'],
+      ? [`${skillCount} local Skill(s)`, `${declaredToolKindCount} declared tool kind(s)`]
+      : ['Waiting for local skills to be added'],
     status: hasSkills ? 'ready' : 'disabled',
-    ...(hasSkills ? { lastTestAt: now } : { lastErrorReason: '未检测到已安装 Skill' }),
+    ...(hasSkills ? { lastTestAt: now } : { lastErrorReason: 'No installed Skill detected' }),
   };
 }
 
