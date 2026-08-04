@@ -412,7 +412,7 @@ export class SkillCatalogRepository {
     for (let ordinal = 1; ordinal <= STARTER_MAX_ORDINAL; ordinal += 1) {
       const id = starterId(ordinal);
       if (occupiedIds.has(id.toLowerCase())) continue;
-      const name = ordinal === 1 ? '示例技能' : `示例技能 ${ordinal}`;
+      const name = ordinal === 1 ? 'Sample Skill' : `Sample Skill ${ordinal}`;
       const content = buildStarterSkillTemplate(id, name);
       requireProjectableSkillContent(content);
       await this.#transactions.publishSkill(id, {

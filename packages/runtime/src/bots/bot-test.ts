@@ -60,7 +60,7 @@ async function testSlack(channel: BotChannelSettings): Promise<BotTestResult> {
   const botToken = channel.token.trim();
   const appToken = channel.appSecret?.trim() ?? '';
   if (!botToken || !appToken) {
-    return { ok: false, error: 'Slack 需要 Bot Token 与 App-Level Token' };
+    return { ok: false, error: 'Slack requires a Bot Token and an App-Level Token' };
   }
   try {
     const identity = await new WebClient(botToken).auth.test();
@@ -76,7 +76,7 @@ async function testSlack(channel: BotChannelSettings): Promise<BotTestResult> {
         ...(identity.user ? { username: identity.user, displayName: identity.user } : {}),
       },
       capabilities: { auth: true, socketMode: true },
-      hint: '凭据有效，Socket Mode 连接可用。',
+      hint: 'Credentials are valid; Socket Mode connection is available.',
     };
   } catch (error) {
     return { ok: false, error: generalizedErrorMessage(error) };
@@ -109,7 +109,7 @@ async function testWechat(channel: BotChannelSettings): Promise<BotTestResult> {
       ok: true,
       identity: { id: appId, username: appId, displayName: appId },
       capabilities: { auth: true },
-      hint: '凭据有效；消息收发还需要公众号服务器配置和回调验证。',
+      hint: 'Credentials are valid; receiving and sending messages still require the official-account server config and callback verification.',
     };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -131,7 +131,7 @@ async function testTelegram(channel: BotChannelSettings): Promise<BotTestResult>
         displayName: me.result.first_name,
       },
       messageSent: false,
-      hint: '发送 /start 给机器人后可在运行态接收消息。',
+      hint: 'Send /start to the bot to receive messages in the runtime.',
     };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -159,8 +159,8 @@ async function testDiscord(channel: BotChannelSettings): Promise<BotTestResult> 
 /**
  * PR1197 review (P1-4): WeCom onboarding + the live bridge now use the
  * enterprise-WeChat **AI bot** credentials, stored as:
- *   - `appId` = AI 应用 Bot ID
- *   - `appSecret` = AI 应用 Secret
+ *   - `appId` = AI app Bot ID
+ *   - `appSecret` = AI app Secret
  *
  * The previous probe issued a corp `gettoken` (corp_id + corp_secret), which is
  * a DIFFERENT credential shape. Running it against valid AI-bot credentials
@@ -180,20 +180,20 @@ async function testWeCom(channel: BotChannelSettings): Promise<BotTestResult> {
   const botId = channel.appId?.trim() ?? '';
   const secret = channel.appSecret?.trim() ?? '';
   if (!botId || !secret) {
-    return { ok: false, error: '企业微信 AI 机器人需要 Bot ID 与 Secret', verified: false };
+    return { ok: false, error: 'WeCom AI bot requires a Bot ID and Secret', verified: false };
   }
   return {
     ok: true,
     verified: false,
     identity: { id: botId, username: botId, displayName: botId },
     capabilities: { auth: false },
-    hint: '已保存凭据；企业微信 AI 机器人的连接状态以运行态长连接为准。',
+    hint: 'Credentials saved; the WeCom AI bot connection state is determined by the runtime long connection.',
   };
 }
 
 /**
  * PR-BOT-DINGTALK-CREDENTIALS-TEST-0 (external bot research: enterprise IM
- * adapters): verify DingTalk (钉钉) self-built app credentials by
+ * adapters): verify DingTalk self-built app credentials by
  * issuing an `access_token` via the open-platform `gettoken` endpoint.
  * Mirrors the WeCom pattern almost exactly — the open platform exposes
  * the same handshake shape with `appkey` / `appsecret`.
@@ -210,7 +210,7 @@ async function testDingTalk(channel: BotChannelSettings): Promise<BotTestResult>
   const appkey = channel.appId?.trim() ?? '';
   const appsecret = channel.appSecret?.trim() ?? '';
   if (!appkey || !appsecret) {
-    return { ok: false, error: '钉钉需要 appkey 与 appsecret' };
+    return { ok: false, error: 'DingTalk requires an appkey and appsecret' };
   }
   const url =
     'https://oapi.dingtalk.com/gettoken?appkey=' +
@@ -226,17 +226,17 @@ async function testDingTalk(channel: BotChannelSettings): Promise<BotTestResult>
     if (json.errcode && json.errcode !== 0) {
       return {
         ok: false,
-        error: json.errmsg ? `钉钉: ${json.errmsg}` : `钉钉 errcode ${json.errcode}`,
+        error: json.errmsg ? `DingTalk: ${json.errmsg}` : `DingTalk errcode ${json.errcode}`,
       };
     }
     if (typeof json.access_token !== 'string' || json.access_token.length === 0) {
-      return { ok: false, error: '钉钉凭据测试未返回 access_token' };
+      return { ok: false, error: 'DingTalk credential test did not return an access_token' };
     }
     return {
       ok: true,
       identity: { id: appkey, username: appkey, displayName: appkey },
       capabilities: { auth: true },
-      hint: '凭据有效；接收消息需要 outgoing 机器人或 Stream 模式配置。',
+      hint: 'Credentials are valid; receiving messages requires an outgoing bot or Stream mode configuration.',
     };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -245,7 +245,7 @@ async function testDingTalk(channel: BotChannelSettings): Promise<BotTestResult>
 
 /**
  * PR-BOT-QQ-CREDENTIALS-TEST-0 (external bot research: official QQ Channel
- * bot): verify QQ 官方机器人 self-built app credentials by issuing an
+ * bot): verify QQ official bot self-built app credentials by issuing an
  * `access_token` via the bots open-platform endpoint. Same handshake
  * shape as WeCom / DingTalk — `appId` + `clientSecret`, returns a
  * short-lived bot access token.
@@ -262,7 +262,7 @@ async function testQQ(channel: BotChannelSettings): Promise<BotTestResult> {
   const appId = channel.appId?.trim() ?? '';
   const clientSecret = channel.appSecret?.trim() ?? '';
   if (!appId || !clientSecret) {
-    return { ok: false, error: 'QQ 官方机器人需要 App ID 与 Client Secret' };
+    return { ok: false, error: 'QQ official bot requires an App ID and Client Secret' };
   }
   try {
     const response = await proxiedFetch('https://bots.qq.com/app/getAppAccessToken', {
@@ -280,13 +280,13 @@ async function testQQ(channel: BotChannelSettings): Promise<BotTestResult> {
       return { ok: false, error: message };
     }
     if (typeof json.access_token !== 'string' || json.access_token.length === 0) {
-      return { ok: false, error: 'QQ 官方机器人凭据测试未返回 access_token' };
+      return { ok: false, error: 'QQ official bot credential test did not return an access_token' };
     }
     return {
       ok: true,
       identity: { id: appId, username: appId, displayName: appId },
       capabilities: { auth: true },
-      hint: '凭据有效；接收消息需要 QQ Gateway WebSocket 接入。',
+      hint: 'Credentials are valid; receiving messages requires a QQ Gateway WebSocket connection.',
     };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };

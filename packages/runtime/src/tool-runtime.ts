@@ -270,7 +270,7 @@ export const DEFAULT_PERMISSION_TIMEOUT_MS = 300_000;
 export const LOOP_GATE_IDENTICAL_THRESHOLD = 3;
 
 const SUBAGENT_TOOL_LIMIT_MESSAGE =
-  '只读探索并发过多：同一轮最多 5 个子代理。请等待已有探索完成后再继续。';
+  'Too many concurrent read-only explorations: at most 5 sub-agents per turn. Wait for an existing exploration to finish before continuing.';
 const CLIENT_CAPABILITY_BOUNDARY_MESSAGE =
   'Client Capability tools require the Bypass execution boundary because their client-side effects cannot be sandboxed by the Host. Switch this Session to Bypass and retry.';
 
@@ -2297,7 +2297,7 @@ function buildTerminalFailureMessage(
   stderr: string,
   sandboxDenied: boolean,
 ): string {
-  const parts = [`命令退出码 ${code}`];
+  const parts = [`command exited with code ${code}`];
   const view = (text: string) =>
     truncateToolOutput(text, {
       maxLines: 40,
@@ -2310,7 +2310,7 @@ function buildTerminalFailureMessage(
   if (stdoutView) parts.push(`--- stdout ---\n${stdoutView}`);
   if (sandboxDenied) {
     parts.push(
-      '该失败很可能来自 Maka sandbox。请先尝试不扩大边界的替代方案；只有工具明确返回 sandbox_boundary_required 和具体 expansion 时，才能请求会话边界扩张。不要从命令文本猜测权限，也不要静默绕过 sandbox。',
+      'This failure likely came from the Maka sandbox. First try an alternative that does not expand the boundary; only when a tool explicitly returns sandbox_boundary_required with a specific expansion may you request a session boundary expansion. Do not guess permissions from the command text, and do not silently bypass the sandbox.',
     );
   }
   return parts.join('\n\n');
@@ -2477,7 +2477,7 @@ function describeToolIntent(tool: MakaTool, args: unknown): string | undefined {
   const normalized = redactSecrets(objective.replace(/\s+/g, ' ').trim());
   if (normalized.length === 0) return undefined;
   const capped = normalized.length <= 180 ? normalized : `${normalized.slice(0, 179)}…`;
-  return `只读探索：${capped}`;
+  return `read-only exploration: ${capped}`;
 }
 
 function byteLength(value: unknown): number {

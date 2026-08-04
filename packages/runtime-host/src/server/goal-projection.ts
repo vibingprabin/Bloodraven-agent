@@ -27,7 +27,7 @@ export function worstCaseGoalProjection(sessionId: string): GoalProjection {
     goalId: 'g'.repeat(128),
     revision: Number.MAX_SAFE_INTEGER,
     sessionId,
-    condition: '界'.repeat(GOAL_CONDITION_TEXT_LIMIT.codeUnits),
+    condition: 'x'.repeat(GOAL_CONDITION_TEXT_LIMIT.codeUnits),
     status: 'paused',
     setAt: Number.MAX_SAFE_INTEGER,
     iterations: Number.MAX_SAFE_INTEGER,
@@ -36,7 +36,7 @@ export function worstCaseGoalProjection(sessionId: string): GoalProjection {
     blockCap: Number.MAX_SAFE_INTEGER,
     tokenBudget: Number.MAX_SAFE_INTEGER,
     tokensSpent: Number.MAX_SAFE_INTEGER,
-    lastReason: '界'.repeat(GOAL_REASON_TEXT_LIMIT.codeUnits),
+    lastReason: 'x'.repeat(GOAL_REASON_TEXT_LIMIT.codeUnits),
     achievedAt: Number.MAX_SAFE_INTEGER,
     pausedAt: Number.MAX_SAFE_INTEGER,
   };

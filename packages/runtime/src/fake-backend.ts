@@ -280,19 +280,19 @@ export class FakeBackend implements AgentBackend {
     const stepId = randomUUID();
     const questions = [
       {
-        question: '首批发布范围选哪个？',
+        question: 'Which scope for the first release?',
         options: [
-          { label: '邀请制', description: '先验证核心流程，再逐步扩大范围。' },
-          { label: '公开测试', description: '允许所有访客注册，但保留 Beta 标识。' },
+          { label: 'Invite-only', description: 'Validate the core flow first, then expand gradually.' },
+          { label: 'Public beta', description: 'Allow all visitors to sign up, but keep the Beta badge.' },
         ],
       },
       {
-        question: '上线时间怎么安排？',
-        options: [{ label: '本周' }, { label: '下周' }],
+        question: 'How should the launch timeline be arranged?',
+        options: [{ label: 'This week' }, { label: 'Next week' }],
       },
       {
-        question: '是否同步发布公告？',
-        options: [{ label: '是' }, { label: '否' }],
+        question: 'Should the announcement be published at the same time?',
+        options: [{ label: 'Yes' }, { label: 'No' }],
       },
     ];
     const appendMessage =
@@ -394,7 +394,7 @@ export class FakeBackend implements AgentBackend {
     };
 
     const messageId = randomUUID();
-    const text = `Fake question answers: ${response.answers.map((answer) => answer ?? '未回答').join(' / ')}`;
+    const text = `Fake question answers: ${response.answers.map((answer) => answer ?? 'unanswered').join(' / ')}`;
     for (const chunk of text.match(/[\s\S]{1,9}/g) ?? [text]) {
       yield {
         type: 'text_delta',

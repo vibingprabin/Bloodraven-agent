@@ -433,6 +433,8 @@ export interface SystemPromptContext {
   turnId: string;
   cwd: string;
   workspaceRoot: string;
+  /** The current user message text, when available (turn-boundary context). */
+  currentUserText?: string;
   /** Diagnostic-only skill catalog trace; never affects prompt construction. */
   emitSkillCatalogTrace?: (message: string, data?: Record<string, unknown>) => void;
 }
@@ -3000,6 +3002,7 @@ export class AiSdkBackend implements AgentBackend {
         turnId,
         cwd: this.input.header.cwd,
         workspaceRoot: this.input.header.workspaceRoot,
+        currentUserText: this.currentUserIntent,
       });
     }
     return this.input.turnTailPrompt;
@@ -3227,7 +3230,7 @@ function buildInvalidMakaTool(): MakaTool<{ tool?: string; error?: string }, nev
     impl: ({ tool, error }) => {
       const requested = tool ? ` "${tool}"` : '';
       throw new Error(
-        `模型请求了不可用或格式错误的工具${requested}：${error || 'tool call could not be parsed'}`,
+        `The model requested an unavailable or malformed tool${requested}: ${error || 'tool call could not be parsed'}`,
       );
     },
   };

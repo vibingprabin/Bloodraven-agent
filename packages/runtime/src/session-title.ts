@@ -78,7 +78,7 @@ function cleanGeneratedSessionTitle(text: string): string | undefined {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .find(Boolean)
-    ?.replace(/^(?:title|标题)\s*[:：]\s*/i, '')
+    ?.replace(/^(?:title|heading)\s*[:：]\s*/i, '')
     .trim();
   if (!firstLine) return undefined;
   const pairs: ReadonlyArray<readonly [string, string]> = [

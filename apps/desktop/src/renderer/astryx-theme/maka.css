@@ -78,8 +78,8 @@
     --duration-slow-min: 525ms;
     --duration-slow: 700ms;
     --duration-slow-max: 935ms;
-    --font-family-body: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei", "Source Han Sans SC", "Geist Variable", sans-serif;
-    --font-family-heading: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "Noto Sans SC", "WenQuanYi Micro Hei", "Source Han Sans SC", "Geist Variable", sans-serif;
+    --font-family-body: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Geist Variable", sans-serif;
+    --font-family-heading: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Geist Variable", sans-serif;
     --font-family-code: "Geist Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --color-syntax-keyword: light-dark(#700084, #efa8ff);
     --color-syntax-string: light-dark(#005600, #a6d2a2);

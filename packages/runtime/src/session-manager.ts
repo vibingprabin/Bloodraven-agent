@@ -1440,10 +1440,10 @@ export class SessionManager {
     }
 
     if (this.runtimeKernel.hasActiveRuns(sessionId)) {
-      throw new Error('当前对话正在运行，等结束后再切换权限模式。');
+      throw new Error('The conversation is currently running; wait for it to finish before switching the permission mode.');
     }
     if (previous.status === 'waiting_for_user') {
-      throw new Error('当前有工具调用正在等待确认，处理后再切换权限模式。');
+      throw new Error('A tool call is waiting for confirmation; handle it before switching the permission mode.');
     }
 
     const labels = leavingDeepResearch
@@ -1473,11 +1473,11 @@ export class SessionManager {
     kind: 'managed' | 'bypass',
   ): Promise<ExecutionBoundary> {
     if (this.runtimeKernel.hasActiveRuns(sessionId)) {
-      throw new Error('当前对话正在运行，等结束后再切换沙箱边界。');
+      throw new Error('The conversation is currently running; wait for it to finish before switching the sandbox boundary.');
     }
     const header = await this.deps.store.readHeader(sessionId);
     if (header.status === 'waiting_for_user') {
-      throw new Error('当前有沙箱边界请求正在等待确认，处理后再切换。');
+      throw new Error('A sandbox boundary request is waiting for confirmation; handle it before switching.');
     }
     const current = await this.deps.store.readExecutionBoundary(sessionId);
     const boundary = await this.commitExecutionBoundaryTransition(sessionId, current, kind);
@@ -1655,20 +1655,20 @@ export class SessionManager {
     const from = previous.collaborationMode ?? 'agent';
     if (from === mode) return headerToSummary(previous);
     if (this.runtimeKernel.hasActiveRuns(sessionId)) {
-      throw new Error('当前对话正在运行，等结束后再切换协作模式。');
+      throw new Error('The conversation is currently running; wait for it to finish before switching the collaboration mode.');
     }
     if (previous.status === 'waiting_for_user') {
-      throw new Error('当前有工具调用正在等待确认，处理后再切换协作模式。');
+      throw new Error('A tool call is waiting for confirmation; handle it before switching the collaboration mode.');
     }
     const planState = await this.requirePlanStore().readState(sessionId);
     if (mode === 'plan' && planState.activeExecutionId) {
-      throw new Error('当前计划仍在执行，结束或中断后才能切换到 Plan Mode。');
+      throw new Error('A plan is still executing; finish or interrupt it before switching to Plan Mode.');
     }
     const latestProposal = planState.proposals.find(
       (proposal) => proposal.proposalId === planState.latestProposalId,
     );
     if (mode === 'agent' && latestProposal?.status === 'pending_approval') {
-      throw new Error('当前方案正在等待审批，请明确放弃方案后再退出 Plan Mode。');
+      throw new Error('A proposal is awaiting approval; explicitly discard it before leaving Plan Mode.');
     }
 
     const next = await this.deps.store.updateHeader(sessionId, {
@@ -1722,10 +1722,10 @@ export class SessionManager {
   async abandonPlanProposal(sessionId: string, proposalId: string): Promise<PlanMutationResult> {
     const header = await this.deps.store.readHeader(sessionId);
     if (this.runtimeKernel.hasActiveRuns(sessionId)) {
-      throw new Error('当前对话仍在运行，无法放弃计划。');
+      throw new Error('The conversation is still running; the plan cannot be abandoned.');
     }
     if (header.status === 'waiting_for_user') {
-      throw new Error('当前有工具调用正在等待确认，无法放弃计划。');
+      throw new Error('A tool call is waiting for confirmation; the plan cannot be abandoned.');
     }
     const result = await this.requirePlanStore().abandonProposal({
       sessionId,
@@ -1751,10 +1751,10 @@ export class SessionManager {
   async approvePlan(input: ApprovePlanProposalInput): Promise<PlanMutationResult> {
     const header = await this.deps.store.readHeader(input.sessionId);
     if (this.runtimeKernel.hasActiveRuns(input.sessionId)) {
-      throw new Error('当前对话仍在运行，无法批准计划。');
+      throw new Error('The conversation is still running; the plan cannot be approved.');
     }
     if (header.status === 'waiting_for_user') {
-      throw new Error('当前有工具调用正在等待确认，无法批准计划。');
+      throw new Error('A tool call is waiting for confirmation; the plan cannot be approved.');
     }
     const result = await this.requirePlanStore().approveProposal(input);
     const next = await this.deps.store.updateHeader(input.sessionId, {
@@ -1778,7 +1778,7 @@ export class SessionManager {
     const state = await planStore.readState(sessionId);
     const execution = state.executions.find((item) => item.executionId === executionId);
     if (execution?.status !== 'interrupted') {
-      throw new Error('只有已中断的计划可以从这里放弃。');
+      throw new Error('Only an interrupted plan can be abandoned from here.');
     }
     const result = await planStore.cancelExecution({
       sessionId,
@@ -4778,7 +4778,7 @@ export class SessionManager {
         permissionMode: header.permissionMode,
         collaborationMode: header.collaborationMode,
         orchestrationMode: header.orchestrationMode ?? 'default',
-        name: input.name ?? `${header.name} · 分支`,
+        name: input.name ?? `${header.name} · branch`,
         labels: header.labels,
         parentSessionId: sessionId,
         branchOfTurnId: input.sourceTurnId,

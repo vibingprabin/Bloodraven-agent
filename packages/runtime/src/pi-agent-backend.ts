@@ -560,7 +560,7 @@ function normalizeToolResultContent(content: unknown): ToolResultContent {
   }
 }
 
-const TRUNCATED_TEXT_MARKER = '\n[内容已截断]';
+const TRUNCATED_TEXT_MARKER = '\n[content truncated]';
 
 function redactBoundedText(text: string, maxChars = TOOL_OUTPUT_DELTA_MAX_CHARS): string {
   const redacted = redactSecrets(text);
@@ -575,6 +575,6 @@ function redactUnknown(value: unknown): unknown {
   try {
     return JSON.parse(redactSecrets(JSON.stringify(value)));
   } catch {
-    return '[无法序列化的参数]';
+    return '[unserializable argument]';
   }
 }

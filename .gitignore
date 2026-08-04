@@ -24,3 +24,13 @@ apps/desktop/resources/bin/
 # Generated desktop release inputs and outputs.
 apps/desktop/resources/tools/
 apps/desktop/release/
+
+# Local scratch probes and one-off bundle tests (not source).
+br-bundle-test.cjs
+br-bundle-test.mjs
+bundle-probe.cjs
+inspect-native.cjs
+packages/cli/proof.txt
+
+# Eval harness run output — specs and fixtures are tracked, runs are generated.
+evals/runs/

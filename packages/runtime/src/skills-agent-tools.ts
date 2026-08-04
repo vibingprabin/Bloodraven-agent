@@ -43,6 +43,8 @@ export const SKILL_SEARCH_TOOL_NAME = 'SkillSearch';
 
 export interface SkillToolOptions {
   shadowTracker?: SkillShadowSelectionTracker;
+  /** Invoked after a skill body loads successfully (used by JIT surfacing). */
+  onInvoke?: (input: { sessionId: string; turnId: string; ref: string }) => void;
 }
 
 export type SkillInventoryResolver = (
@@ -142,6 +144,11 @@ function buildSkillAgentToolWithLoader(
       const result = await load(name, ctx, typeof host === 'function' ? host(ctx) : host);
       if (result.ok) {
         const shadow = options.shadowTracker?.observe(ctx, result.skill.ref);
+        options.onInvoke?.({
+          sessionId: ctx.sessionId,
+          turnId: ctx.turnId,
+          ref: result.skill.ref,
+        });
         const receipt = loadedSkillInvocationReceipt('model_tool', name, result.skill);
         ctx.emitRunTrace?.('skill_loaded', 'Skill instructions loaded', {
           ...skillInvocationReceiptTraceData(receipt),

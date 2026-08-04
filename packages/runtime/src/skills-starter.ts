@@ -5,25 +5,25 @@
 export function buildStarterSkillTemplate(id: string, name: string): string {
   return `---
 name: ${name}
-description: 把常用工作流写成可复用的本地指令。
+description: Turn a recurring workflow into reusable local instructions.
 allowed-tools:
   - Read
 ---
 
 # ${name}
 
-当用户要求你按固定流程完成某类任务时，先加载这个技能。
+Load this skill when the user asks you to complete a task type with a fixed workflow.
 
-## 使用方式
+## How to use
 
-1. 先确认用户的目标、输入材料和交付格式。
-2. 阅读必要的本地文件或上下文，只收集完成任务需要的信息。
-3. 按步骤输出结果；如果需要改文件，先说明要改哪里和原因。
+1. First confirm the user's goal, input material, and delivery format.
+2. Read the necessary local files or context; only collect what the task needs.
+3. Produce the result step by step; if files need changing, first state what and why.
 
-## 边界
+## Boundaries
 
-- 这个技能声明的工具只是需求提示，不会自动获得权限。
-- 不要把敏感内容写进这里；它会作为本地技能指令进入模型上下文。
-- 如果这个模板不适合你的工作流，可以直接改名或删除 ${id}。
+- The tools this skill declares are only request hints; they do not grant permissions automatically.
+- Do not write sensitive content here; it enters the model context as local skill instructions.
+- If this template does not fit your workflow, rename or delete ${id} directly.
 `;
 }

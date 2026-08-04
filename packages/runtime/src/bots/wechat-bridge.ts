@@ -307,7 +307,7 @@ export async function getWechatBridgeQrCode(
     return {
       ok: false,
       error: 'WeChat bridge URL must be http://127.0.0.1 or http://localhost',
-      hint: '微信扫码登录只允许访问本机 wechat-bridge，不能指向远端 URL。',
+      hint: 'WeChat QR-code login may only access the local wechat-bridge; it cannot point at a remote URL.',
     };
   }
 
@@ -325,7 +325,7 @@ export async function getWechatBridgeQrCode(
   return {
     ok: false,
     error: generalizedErrorMessage(lastError),
-    hint: '先启动本机 wechat-bridge，并确认它暴露了 iLink 兼容的 /api/weixin/qrcode 或 /qrcode 接口。',
+    hint: 'Start the local wechat-bridge first and confirm it exposes the iLink-compatible /api/weixin/qrcode or /qrcode endpoint.',
   };
 }
 
@@ -429,7 +429,7 @@ export async function testWechatBridge(channel: BotChannelSettings): Promise<Bot
     return {
       ok: false,
       error: 'WeChat bridge URL must be http://127.0.0.1 or http://localhost',
-      hint: '微信本地桥接只允许访问本机 wechat-bridge，不能指向远端 URL。',
+      hint: 'WeChat local bridging may only access the local wechat-bridge; it cannot point at a remote URL.',
     };
   }
   try {
@@ -460,7 +460,7 @@ export async function testWechatBridge(channel: BotChannelSettings): Promise<Bot
     return {
       ok: false,
       error: generalizedErrorMessage(error),
-      hint: '先在本机启动 wechat-bridge，并确认 WeChat 已登录；发送能力需要 wxp_act_ 激活码。',
+      hint: 'Start the wechat-bridge locally first and confirm WeChat is logged in; sending requires a wxp_act_ activation code.',
     };
   }
 }
@@ -498,7 +498,7 @@ export async function testWechatIlinkCredentials(
     return {
       ok: false,
       error: 'WeChat iLink credentials are incomplete',
-      hint: '请先完成微信扫码登录，保存 iLink bot token 与 base URL。',
+      hint: 'Complete the WeChat QR-code login first, then save the iLink bot token and base URL.',
     };
   }
   return {
@@ -509,7 +509,7 @@ export async function testWechatIlinkCredentials(
       displayName: channel.botUserId ? `iLink ${channel.botUserId}` : 'WeChat iLink',
     },
     capabilities: { auth: true, send: true },
-    hint: '扫码登录凭据已保存；运行态会通过 iLink 长轮询接收消息。',
+    hint: 'QR-code login credentials saved; the runtime receives messages via iLink long polling.',
   };
 }
 

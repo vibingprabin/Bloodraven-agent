@@ -6,13 +6,13 @@ import { isPathInside, isSafeSkillId } from './path-containment.js';
 import { validateSkillMetadata } from './skills-metadata.js';
 
 export const MANAGED_SKILL_CATEGORIES = [
-  '内容创作',
-  '数据与AI',
-  '设计与UI',
-  'DevOps与部署',
-  '文档与写作',
-  '效率工具',
-  '研究与分析',
+  'Content Creation',
+  'Data & AI',
+  'Design & UI',
+  'DevOps & Deployment',
+  'Documentation & Writing',
+  'Productivity Tools',
+  'Research & Analysis',
 ] as const;
 
 export type ManagedSkillCategory = (typeof MANAGED_SKILL_CATEGORIES)[number];
@@ -45,7 +45,7 @@ export type ReadManagedSkillSourcesResult =
   | { ok: true; sources: ManagedSkillSourceRecord[] }
   | { ok: false; reason: 'not_found' | 'blocked_path' | 'read_failed' };
 
-const MANAGED_SKILL_CATEGORY_DEFAULT: ManagedSkillCategory = '效率工具';
+const MANAGED_SKILL_CATEGORY_DEFAULT: ManagedSkillCategory = 'Productivity Tools';
 
 export function normalizeManagedSkillCategory(raw: string | undefined): ManagedSkillCategory {
   if (raw && (MANAGED_SKILL_CATEGORIES as readonly string[]).includes(raw)) {
