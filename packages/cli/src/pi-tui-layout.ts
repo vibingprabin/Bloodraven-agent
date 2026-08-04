@@ -1,10 +1,12 @@
-import { Container, type Component, type Terminal } from '@earendil-works/pi-tui';
+﻿import { Container, type Component, type Terminal } from '@earendil-works/pi-tui';
 // Deep import (pi-tui does not re-export it): the viewport shadow diff must
 // compare the same canonical lines pi-tui diffs, and pi-tui normalizes Thai/Lao
 // AM sequences before its diff. Pinned to pi-tui 0.80.3.
 import { normalizeTerminalOutput } from '@earendil-works/pi-tui/dist/utils.js';
 import {
   renderMakaPiActivityStrip,
+  renderMakaPiBrandBar,
+  renderMakaPiDivider,
   renderMakaPiPendingQueue,
   renderMakaPiStatusLine,
   renderMakaPiTranscript,
@@ -22,6 +24,26 @@ export class MakaTranscriptComponent implements Component {
 
   render(width: number): string[] {
     return renderMakaPiTranscript(this.state, this.metadata(), width);
+  }
+}
+
+/** The opencode-style top brand bar (Bloodraven wordmark in accent). */
+export class MakaBrandBarComponent implements Component {
+  constructor(private readonly metadata: () => MakaPiTranscriptMetadata) {}
+
+  invalidate(): void {}
+
+  render(width: number): string[] {
+    return [renderMakaPiBrandBar(this.metadata(), width)];
+  }
+}
+
+/** The accent separator band above the input panel (sticky-bottom chrome). */
+export class MakaDividerComponent implements Component {
+  invalidate(): void {}
+
+  render(width: number): string[] {
+    return [renderMakaPiDivider(width)];
   }
 }
 
@@ -57,44 +79,54 @@ export class MakaPendingQueueComponent implements Component {
 }
 
 /**
- * Stacks the transcript above the editor and status line. The transcript is
- * never windowed: every line is emitted and, when the whole document is taller
- * than the terminal, pi-tui's differential renderer scrolls older output into
- * the terminal's own scrollback (exactly as the upstream Pi TUI does). History
- * is scrolled with the terminal/trackpad rather than an in-app pager, so long
- * output is never truncated.
+ * Stacks the brand bar and transcript above the editor and status line. The
+ * transcript is never windowed: every line is emitted and, when the whole
+ * document is taller than the terminal, pi-tui's differential renderer scrolls
+ * older output into the terminal's own scrollback (exactly as the upstream Pi
+ * TUI does). History is scrolled with the terminal/trackpad rather than an
+ * in-app pager, so long output is never truncated.
  *
- * The only layout work is bottom-anchoring: while the transcript fits, blank
- * rows pad it up so the editor and status line sit at the bottom of the screen.
- * Once it overflows the padding is gone and the buffer grows past the viewport.
+ * The only layout work is anchoring: the brand bar sits pinned to the top and
+ * the remaining chrome (activity strip, pending queue, accent divider, editor,
+ * status line) is bottom-anchored. While the transcript fits, blank rows pad it
+ * up so that chrome sits at the bottom of the screen; once it overflows the
+ * padding is gone and the buffer grows past the viewport.
  */
 export class MakaPiLayoutComponent extends Container {
   /** Composed lines of the previous render, for the viewport-top shadow diff. */
   private previousLines: string[] | undefined;
   private previousRows: number | undefined;
   private previousWidth: number | undefined;
+  /** Previous viewport top in COMPOSED coordinates (including the brand bar). */
+  private previousViewportTopComposed: number | undefined;
 
   constructor(
     private readonly state: MakaPiTranscriptState,
+    private readonly brand: MakaBrandBarComponent,
     private readonly transcript: MakaTranscriptComponent,
     private readonly activityStrip: MakaActivityStripComponent,
     private readonly pendingQueue: MakaPendingQueueComponent,
+    private readonly divider: MakaDividerComponent,
     private readonly editor: Component,
     private readonly statusLine: Component,
     private readonly terminal: Terminal,
   ) {
     super();
+    this.addChild(brand);
     this.addChild(transcript);
     this.addChild(activityStrip);
     this.addChild(pendingQueue);
+    this.addChild(divider);
     this.addChild(editor);
     this.addChild(statusLine);
   }
 
   render(width: number): string[] {
+    const brandLines = this.brand.render(width);
     const transcriptLines = this.transcript.render(width);
     const activityLines = this.activityStrip.render(width);
     const pendingLines = this.pendingQueue.render(width);
+    const dividerLines = this.divider.render(width);
     const editorLines = this.editor.render(width);
     const statusLines = this.statusLine.render(width);
     // #1064: when the activity strip is showing (a turn is running), separate
@@ -107,33 +139,31 @@ export class MakaPiLayoutComponent extends Container {
     const needGap =
       activityActive && lastTranscriptLine !== undefined && lastTranscriptLine.length > 0;
     const paddedTranscript = needGap ? [...transcriptLines, ''] : transcriptLines;
+    // The brand bar is pinned to the top; every other chrome row is
+    // bottom-anchored (activity, pending, divider, editor, status line).
     const chromeRows =
-      activityLines.length + pendingLines.length + editorLines.length + statusLines.length;
+      activityLines.length + pendingLines.length + dividerLines.length +
+      editorLines.length + statusLines.length;
     const viewportRows = Math.max(0, this.terminal.rows - chromeRows);
     const paddingRows = Math.max(0, viewportRows - paddedTranscript.length);
     const lines = [
+      ...brandLines,
       ...paddedTranscript,
       ...Array.from({ length: paddingRows }, () => ''),
       ...activityLines,
       ...pendingLines,
+      ...dividerLines,
       ...editorLines,
       ...statusLines,
     ];
-    // #1097: record where pi-tui's live viewport starts for this render, in
-    // transcript-line coordinates (valid because the transcript opens this
-    // composed list at line 0). The expansion toggles use it to leave entries
-    // above the viewport untouched — their lines sit in scrollback, which
-    // cannot be rewritten without a scrollback-clearing full redraw.
-    //
-    // Shadow pi-tui's own viewport rule rather than guessing: its viewport
-    // never scrolls back up (monotonic max) except when it full-redraws and
-    // re-anchors to the document tail. Each branch of nextViewportTop mirrors
-    // one decision in pi-tui's doRender (tui.js, pinned 0.80.3); the estimate
-    // may exceed the real viewport top (which only makes the toggles more
-    // conservative) but must never fall below it. An upstream viewport getter
-    // would collapse all of this to one line.
+    // #1097: record where pi-tui's live viewport starts for this render. The
+    // shadow diff runs over the FULL composed buffer (brand bar included), but
+    // the state value is consumed in transcript-line coordinates — the brand
+    // bar height is the constant offset between the two.
     const normalized = lines.map(normalizeTerminalOutput);
-    this.state.renderGeometry.viewportTop = this.nextViewportTop(normalized, width);
+    const composedTop = this.nextViewportTop(normalized, width);
+    this.previousViewportTopComposed = composedTop;
+    this.state.renderGeometry.viewportTop = Math.max(0, composedTop - brandLines.length);
     this.previousLines = normalized;
     this.previousRows = this.terminal.rows;
     this.previousWidth = width;
@@ -145,10 +175,14 @@ export class MakaPiLayoutComponent extends Container {
     const rows = this.terminal.rows;
     const tailTop = Math.max(0, lines.length - rows);
     const previous = this.previousLines;
+    const current = this.previousViewportTopComposed;
     // First render; width changes full-redraw unconditionally (tui.js ~1061),
-    // even when no line ends up wrapping differently.
-    if (previous === undefined || this.previousWidth !== width) return tailTop;
-    const current = this.state.renderGeometry.viewportTop;
+    // even when no line ends up wrapping differently. `current` is set in the
+    // same render pass as `previousLines`, so it is present whenever the
+    // previous lines are; the guard is defensive for the type system.
+    if (previous === undefined || this.previousWidth !== width || current === undefined) {
+      return tailTop;
+    }
     if (this.previousRows !== rows) {
       // Height changes full-redraw (tui.js ~1069) except under Termux, where
       // the software keyboard resizes constantly and pi-tui instead keeps the

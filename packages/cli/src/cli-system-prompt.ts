@@ -6,11 +6,15 @@ import {
   buildWorkspaceInstructionsPromptFragment,
   resolveProjectGitInfo,
   resolveSkillDiscoveryPaths,
+  selectRelevantSkills,
+  renderRelevantSkillsBlock,
   type AutomationManager,
   type GoalManager,
   type HostCapabilities,
+  type ScannedSkill,
   type SkillSource,
   type SkillSelectionReport,
+  type SkillSurfaceTracker,
 } from '@maka/runtime';
 
 /**
@@ -62,7 +66,7 @@ export async function buildCliSystemPrompt(
   input: BuildCliSystemPromptInput,
 ): Promise<string | undefined> {
   const personalization = buildPersonalizationPromptFragment(input.settings.personalization);
-  // personalization -> skills -> workspaceInstructions, matching the desktop app.
+  // base identity -> personalization -> skills -> workspaceInstructions, matching the desktop app.
   const skillSource = resolveSkillDiscoveryPaths(input.cwd, input.workspaceRoot, input.homeDir);
   const skillPrompt = await buildSkillsPromptFragmentWithReport(skillSource, input.host, {
     contextWindow: input.modelContextWindow,
@@ -72,17 +76,55 @@ export async function buildCliSystemPrompt(
   const workspaceInstructions = input.settings.workspaceInstructions.enabled
     ? await buildWorkspaceInstructionsPromptFragment(input.cwd)
     : undefined;
-  const fragments = [personalization.text, skills, workspaceInstructions].filter((v): v is string =>
-    Boolean(v),
-  );
+  const fragments = [
+    BLOODRAVEN_BASE_IDENTITY,
+    personalization.text,
+    skills,
+    workspaceInstructions,
+  ].filter((v): v is string => Boolean(v));
   return fragments.length > 0 ? fragments.join('\n\n') : undefined;
 }
+
+/**
+ * Base assistant identity for the Bloodraven fork.
+ *
+ * Maka's upstream CLI sends no identity system prompt for non-subscription
+ * connections, which leaves the model to self-identify from training data
+ * (deepseek-v4-flash commonly answers "I'm Claude" with zero framing). This
+ * fragment pins the identity and stance so every run is explicit about what
+ * the assistant is and is not.
+ */
+const BLOODRAVEN_BASE_IDENTITY = [
+  'You are Bloodraven, a local-first autonomous research and development agent.',
+  'Your runtime is the Maka agent harness (a fork of maka-agent).',
+  'Your default model is deepseek-v4-flash unless the session selects another model.',
+  'You execute real work with tools (Bash, Read, Write, Edit, Grep, Glob, search, and loaded MCP tools).',
+  'You can self-provision capabilities: use mcp_register to install and connect an MCP server,',
+  'then mcp_call to invoke its tools immediately in this same session, and mcp_list_servers to',
+  'see what is registered. Registering a server runs a local process or reaches a network URL,',
+  'so it is permission-gated like any network tool.',
+  'You are not Claude, not ChatGPT, and not any hosted assistant: you are Bloodraven.',
+  'When asked about your identity, state this plainly.',
+].join('\n');
 
 export async function buildCliTurnTailPrompt(input: {
   cwd: string;
   sessionId?: string;
+  workspaceRoot?: string;
+  homeDir?: string;
+  currentUserText?: string;
   automationManager?: AutomationManager;
   goalManager?: GoalManager;
+  /**
+   * Skill catalog advertised this session: refs already rendered in the static
+   * system-prompt catalog. Just-in-time surfacing never re-shows them.
+   */
+  advertisedSkillRefs?: ReadonlySet<string>;
+  /** Skill inventory resolver (defaults to scanning the discovery paths). */
+  resolveInventory?: () => Promise<readonly ScannedSkill[]> | readonly ScannedSkill[];
+  host?: HostCapabilities;
+  /** Per-session behavioral suppression tracker. */
+  surfaceTracker?: SkillSurfaceTracker;
 }): Promise<string> {
   const projectGit = await resolveProjectGitInfo(input.cwd);
   const fragments = [buildSessionEnvironmentPromptFragment({ cwd: input.cwd, projectGit })];
@@ -98,8 +140,32 @@ export async function buildCliTurnTailPrompt(input: {
     const goalFragment = buildGoalTailFragment(input.sessionId, input.goalManager);
     if (goalFragment) fragments.push(goalFragment);
   }
+  const relevanceFragment = await buildSkillRelevanceTailFragment(input);
+  if (relevanceFragment) fragments.push(relevanceFragment);
 
   return fragments.join('\n\n');
+}
+
+async function buildSkillRelevanceTailFragment(
+  input: Parameters<typeof buildCliTurnTailPrompt>[0],
+): Promise<string | undefined> {
+  const text = input.currentUserText?.trim();
+  if (!text || !input.sessionId || !input.resolveInventory) return undefined;
+  const tracker = input.surfaceTracker;
+  if (tracker?.silenced(input.sessionId)) return undefined;
+  const inventory = await input.resolveInventory();
+  const suppressed = tracker?.suppressedRefs(input.sessionId) ?? new Set<string>();
+  const selection = selectRelevantSkills(inventory, text, {
+    host: input.host,
+    alreadyVisibleRefs: input.advertisedSkillRefs,
+    suppressedRefs: suppressed,
+  });
+  if (selection.matches.length === 0) return undefined;
+  tracker?.recordSurface(
+    input.sessionId,
+    selection.matches.map((match) => match.ref),
+  );
+  return renderRelevantSkillsBlock(selection);
 }
 
 function buildGoalTailFragment(sessionId: string, manager: GoalManager): string | undefined {

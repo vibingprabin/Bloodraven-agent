@@ -157,11 +157,11 @@ describe('skill token highlight', () => {
     const line = rendered.find((candidate) => candidate.includes('/skill:alpha'));
     assert.ok(line, 'token line renders');
     assert.ok(
-      line.includes('\x1b[38;2;87;163;239m/skill:alpha\x1b[39m'),
+      line.includes('\x1b[38;2;197;40;33m/skill:alpha\x1b[39m'),
       `valid token carries the brand accent: ${JSON.stringify(line)}`,
     );
     assert.ok(
-      !line.includes('\x1b[38;2;87;163;239m/skill:nope\x1b[39m'),
+      !line.includes('\x1b[38;2;197;40;33m/skill:nope\x1b[39m'),
       'invalid token stays plain',
     );
   });

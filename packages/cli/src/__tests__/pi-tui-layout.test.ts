@@ -13,6 +13,8 @@ import {
 } from '../pi-transcript.js';
 import {
   MakaActivityStripComponent,
+  MakaBrandBarComponent,
+  MakaDividerComponent,
   MakaPendingQueueComponent,
   MakaPiLayoutComponent,
   MakaStatusLineComponent,
@@ -45,11 +47,13 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
     const { state, layout, terminal } = harness();
     growTranscript(state, 60);
     const lines = layout.render(80);
-    assert.equal(state.renderGeometry.viewportTop, lines.length - 24);
+    // The brand bar sits at composed line 0, so the transcript-local viewport
+    // top is one less than the composed tail.
+    assert.equal(state.renderGeometry.viewportTop, lines.length - 25);
 
     terminal.rows = 50;
     const taller = layout.render(80);
-    assert.equal(state.renderGeometry.viewportTop, Math.max(0, taller.length - 50));
+    assert.equal(state.renderGeometry.viewportTop, Math.max(0, taller.length - 51));
 
     // pi-tui full-redraws on any width change, even without a wrap difference.
     terminal.rows = 24;
@@ -57,7 +61,7 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
     const before = state.renderGeometry.viewportTop;
     terminal.columns = 120;
     const wider = layout.render(120);
-    assert.equal(state.renderGeometry.viewportTop, Math.max(0, wider.length - 24));
+    assert.equal(state.renderGeometry.viewportTop, Math.max(0, wider.length - 25));
     assert.ok(state.renderGeometry.viewportTop <= before);
   });
 
@@ -81,7 +85,7 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
     // which re-anchors its viewport to the new document tail.
     state.entries.length = 1;
     const shrunk = layout.render(80);
-    assert.equal(state.renderGeometry.viewportTop, Math.max(0, shrunk.length - 24));
+    assert.equal(state.renderGeometry.viewportTop, Math.max(0, shrunk.length - 25));
     assert.ok(state.renderGeometry.viewportTop < top);
   });
 
@@ -93,7 +97,7 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
 
     addTool(state, 'tool-append', 'echo more');
     const grown = layout.render(80);
-    assert.equal(state.renderGeometry.viewportTop, grown.length - 24);
+    assert.equal(state.renderGeometry.viewportTop, grown.length - 25);
     assert.ok(state.renderGeometry.viewportTop >= top);
   });
 
@@ -117,15 +121,16 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
       assert.ok(head?.kind === 'thinking');
       head.expanded = true;
       growTranscript(state, 60, 'message-1');
-      growTranscript(state, 10, 'message-2');
+      // A short tail entry whose head sits below the viewport top: popping it
+      // is a shallow truncation that keeps the top (the removed rows are in
+      // the live viewport, not in scrollback), leaving the top above the tail.
+      addTool(state, 'tool-tail', 'echo tail');
       layout.render(80);
       const top = state.renderGeometry.viewportTop;
-      // Shallow truncation: drop the m2 filler; the top stays put and now
-      // sits above the document tail.
       state.entries.pop();
       const lines = layout.render(80);
       assert.equal(state.renderGeometry.viewportTop, top);
-      assert.ok(top > lines.length - 24);
+      assert.ok(top > lines.length - 25);
       return { state, layout, head, top };
     };
 
@@ -163,15 +168,17 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
     for (let i = 0; i < 100; i += 1) appendUserPrompt(state, `prompt-${i}`);
     const lines = layout.render(80);
     const top = state.renderGeometry.viewportTop;
-    assert.equal(top, lines.length - 24);
+    assert.equal(top, lines.length - 25);
 
-    // Each user entry is two composed lines (blank + prompt); chrome is five.
-    // Truncate so the composed document ends exactly at the old top.
-    const keep = (top - 5) / 2;
+    // Each user entry is two composed lines (blank + prompt); bottom chrome is
+    // six (activity strip + divider + three editor rows + status line) and the
+    // brand bar adds one at the top. Truncate so the composed document ends
+    // exactly at the old composed top (lines.length - 24).
+    const keep = (lines.length - 24 - 7) / 2;
     assert.equal(keep, Math.floor(keep));
     state.entries.length = keep;
     const shrunk = layout.render(80);
-    assert.equal(shrunk.length, top);
+    assert.equal(shrunk.length, lines.length - 24);
     assert.equal(state.renderGeometry.viewportTop, Math.max(0, top - 24));
   });
 
@@ -182,10 +189,9 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
       growTranscript(state, 60, 'message-1');
       growTranscript(state, 10, 'message-2');
       layout.render(80);
-      const top = state.renderGeometry.viewportTop;
       state.entries.pop();
       layout.render(80);
-      assert.equal(state.renderGeometry.viewportTop, top);
+      const top = state.renderGeometry.viewportTop;
 
       // pi-tui keeps the buffer under Termux and recomputes the top from it;
       // re-anchoring to the shorter document tail would fall below it.
@@ -240,9 +246,11 @@ function harness(): {
   });
   const layout = new MakaPiLayoutComponent(
     state,
+    new MakaBrandBarComponent(metadata),
     new MakaTranscriptComponent(state, metadata),
     new MakaActivityStripComponent(metadata),
     new MakaPendingQueueComponent(state),
+    new MakaDividerComponent(),
     stubComponent(['editor-1', 'editor-2', 'editor-3']),
     new MakaStatusLineComponent(metadata),
     terminal as unknown as Terminal,

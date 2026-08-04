@@ -1241,8 +1241,10 @@ export function permissionModeLabel(mode: string): string {
 export function renderMakaPiStatusLine(metadata: MakaPiTranscriptMetadata, width: number): string {
   const safeWidth = Math.max(1, width);
   const sep = ansi.dim(' · ');
+  // The brand bar carries the wordmark, so the status-line title is dim like
+  // the rest of the usage bar rather than bold (opencode-style restraint).
   const parts: string[] = [
-    ansi.bold(metadata.title),
+    ansi.dim(metadata.title),
     ansi.dim(permissionModeLabel(metadata.permissionMode)),
     ansi.dim(metadata.model),
   ];
@@ -1289,10 +1291,49 @@ export function renderMakaPiStatusLine(metadata: MakaPiTranscriptMetadata, width
 }
 
 /**
+ * opencode-style top brand bar: the Bloodraven wordmark in accent, then the
+ * session context in dim, pinned above the transcript. The wordmark is the
+ * single constant element; a custom session name (set via /rename, surfaced
+ * through metadata.title) follows it, while the default title is the app name
+ * itself and adds nothing.
+ */
+export function renderMakaPiBrandBar(
+  metadata: MakaPiTranscriptMetadata,
+  width: number,
+): string {
+  const safeWidth = Math.max(1, width);
+  const parts: string[] = [ansi.accent('bloodraven')];
+  const title = metadata.title;
+  if (title && title.toLowerCase() !== 'bloodraven') {
+    parts.push(ansi.dim(title));
+  }
+  return fitLine(parts.join(ansi.dim(' · ')), safeWidth);
+}
+
+/**
+ * The accent separator above the input panel (opencode's bottom-panel border).
+ * Uses the exact extracted eye red rather than the brightened text accent: as a
+ * full-width chrome band the deep tone reads as the lowpoly accent without
+ * shouting, and stays visually distinct from the brighter text glyphs above.
+ * U+2501 heavy dash so the plain line never collides with the editor's `─`
+ * box borders that inputSurfaceRows() keys on in tests.
+ */
+export function renderMakaPiDivider(width: number): string {
+  return ansi.accentDeep('━'.repeat(Math.max(1, width)));
+}
+
+/**
  * One-line activity strip shown between the transcript and the editor.
  * Renders `Working… Ns` while a turn runs, or a blank reserved row when idle
  * so the layout does not jump when a turn starts or ends.
  */
+// Braille spinner shown in the TUI content while a turn runs (the user's
+// preferred busy indicator — it renders crisply in the terminal body, unlike
+// the title bar where the same glyphs read as a chunky Windows circle). The
+// frame advances on every activity-strip render so the animation is smooth.
+const CONTENT_SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let contentSpinnerFrame = 0;
+
 export function renderMakaPiActivityStrip(
   metadata: MakaPiTranscriptMetadata,
   width: number,
@@ -1308,7 +1349,9 @@ export function renderMakaPiActivityStrip(
   }
   if (metadata.turnElapsedMs === undefined) return '';
   const seconds = Math.floor(metadata.turnElapsedMs / 1000);
-  return fitLine(ansi.dim(`Working… ${seconds}s`), safeWidth);
+  const frame = CONTENT_SPINNER_FRAMES[contentSpinnerFrame % CONTENT_SPINNER_FRAMES.length];
+  contentSpinnerFrame += 1;
+  return fitLine(`${ansi.accent(frame)} ${ansi.dim(`Working… ${seconds}s`)}`, safeWidth);
 }
 
 /**
@@ -1348,7 +1391,7 @@ export function renderMakaPiPendingQueue(state: MakaPiTranscriptState, width: nu
   for (const text of followup) {
     lines.push(fitLine(`${ansi.dim('Queued:')} ${ansi.dim(firstLinePreview(text))}`, safeWidth));
   }
-  lines.push(fitLine(ansi.dim('alt+↑ 取回队列以重新编辑'), safeWidth));
+  lines.push(fitLine(ansi.dim('alt+↑ recall queue to re-edit'), safeWidth));
   return lines;
 }
 
@@ -1418,14 +1461,17 @@ function setThinking(state: MakaPiTranscriptState, messageId: string, text: stri
 
 // Thinking stays collapsed to a one-line marker by default so reasoning
 // never floods the scrollback; Ctrl+T expands every thinking entry on demand.
+// Opencode-style: the marker uses the accent color (the app's red) so the
+// reasoning trace is visually distinct from assistant text; the expanded body
+// is indented and dim (muted), reading like a "Thought:" note above the reply.
 function renderThinkingBlock(
   entry: MakaPiThinkingEntry,
   width: number,
   expanded: boolean,
 ): string[] {
   if (!entry.text.trim()) return [];
-  if (!expanded) return [fitLine(ansi.dim('Thinking…'), width)];
-  const lines = [fitLine(ansi.dim('Thinking'), width)];
+  if (!expanded) return [fitLine(`${ansi.accent('▸ Thought')}`, width)];
+  const lines = [fitLine(`${ansi.accent('▾ Thought')}`, width)];
   lines.push(...renderIndented(entry.text, width, 2).map((line) => fitLine(ansi.dim(line), width)));
   return lines;
 }
@@ -1572,8 +1618,11 @@ function renderAssistantBlock(text: string, width: number): string[] {
     .map((line) => fitLine(line, width));
 }
 
+// opencode-style notice: short bold label + plain message — a clean inline note,
+// never an alarming banner.
 function renderNotice(entry: MakaPiNoticeEntry, width: number): string[] {
-  const label = entry.level === 'error' ? ansi.red('Error') : ansi.dim('Note');
+  const label =
+    entry.level === 'error' ? ansi.red(ansi.bold('Error')) : ansi.dim('Note');
   return renderIndented(`${label}: ${entry.text}`, width, 0).map((line) => fitLine(line, width));
 }
 
@@ -1593,15 +1642,14 @@ const MAKA_WORDMARK_LINES = [
 const MAKA_WORDMARK_WIDTH = Math.max(...MAKA_WORDMARK_LINES.map((line) => line.length));
 
 function renderWelcomeBlock(width: number): string[] {
-  // The branded home greets with the maka wordmark, a short Chinese-first
-  // tagline, and the command-center entry points (direct input, /session,
-  // /model, /setup) so a fresh session shows the main actions without typing
-  // `/`. The active model and connection live in the statusline, so the
-  // welcome does not repeat them.
+  // The branded home greets with the maka wordmark, a short tagline, and the
+  // command-center entry points (direct input, /session, /model, /setup) so a
+  // fresh session shows the main actions without typing `/`. The active model
+  // and connection live in the statusline, so the welcome does not repeat them.
   const hints: [string, string][] = [
-    ['/session', '切换或恢复会话'],
-    ['/model', '切换模型'],
-    ['/setup', '配置模型提供商'],
+    ['/session', 'switch or resume session'],
+    ['/model', 'switch model'],
+    ['/setup', 'configure model provider'],
   ];
   const keyWidth = Math.max(...hints.map(([key]) => key.length));
   const lines: string[] = [];
@@ -1613,9 +1661,9 @@ function renderWelcomeBlock(width: number): string[] {
     }
   }
   lines.push('');
-  lines.push(fitLine(ansi.dim('陪你把事做完'), width));
+  lines.push(fitLine(ansi.dim('get things done with you'), width));
   lines.push('');
-  lines.push(fitLine('  输入消息开始对话', width));
+  lines.push(fitLine('  type a message to start the conversation', width));
   for (const [key, description] of hints) {
     lines.push(fitLine(ansi.dim(`  ${key.padEnd(keyWidth)}  ${description}`), width));
   }

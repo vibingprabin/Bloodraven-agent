@@ -48,8 +48,8 @@ describe('Maka Pi TUI transcript', () => {
     );
     // Four-line lowercase ASCII maka wordmark.
     assert.deepEqual(lines.slice(0, 4), MAKA_WORDMARK);
-    // The wordmark is Maka blue (accent), not plain text.
-    assert.ok(renderMakaPiTranscript(state, meta(), 100)[0].includes('\x1b[38;2;87;163;239m'));
+    // The wordmark is the eye-red accent (#c52821), not plain text.
+    assert.ok(renderMakaPiTranscript(state, meta(), 100)[0].includes('\x1b[38;2;197;40;33m'));
     // Short Chinese-first tagline.
     assert.ok(lines.includes('陪你把事做完'));
     // Command-center hints: direct input + /session + /model + /setup. /help is
@@ -1435,7 +1435,7 @@ describe('Maka Pi TUI transcript', () => {
     assert.equal(state.entries[0]?.kind === 'thinking' ? state.entries[0].text : '', 'plan first');
 
     const collapsed = renderMakaPiTranscript(state, meta(), 100).map(stripAnsi);
-    const markerIndex = collapsed.findIndex((line) => line.includes('Thinking…'));
+    const markerIndex = collapsed.findIndex((line) => line.includes('Thought'));
     const toolIndex = collapsed.findIndex((line) => line.includes('● Read'));
     const answerIndex = collapsed.findIndex((line) => line.includes('the answer'));
     assert.ok(markerIndex >= 0);
@@ -1520,7 +1520,7 @@ describe('Maka Pi TUI transcript', () => {
     );
 
     const lines = renderMakaPiTranscript(state, meta(), 100).map(stripAnsi);
-    const markerIndex = lines.findIndex((line) => line.includes('Thinking…'));
+    const markerIndex = lines.findIndex((line) => line.includes('Thought'));
     assert.ok(markerIndex > 0);
 
     // Thinking reads as model output: a blank line sets it apart from the
@@ -4155,7 +4155,7 @@ describe('Maka Pi TUI transcript', () => {
     );
 
     const collapsed = renderMakaPiTranscript(state, meta(), 100).map(stripAnsi);
-    assert.equal(collapsed.filter((line) => line.includes('Thinking…')).length, 2);
+    assert.equal(collapsed.filter((line) => line.includes('Thought')).length, 2);
     assert.equal(
       collapsed.some((line) => line.includes('thought body')),
       false,
@@ -4170,7 +4170,7 @@ describe('Maka Pi TUI transcript', () => {
     // A second press collapses every thinking entry again.
     assert.equal(toggleAllThinkingExpansion(state), true);
     const recollapsed = renderMakaPiTranscript(state, meta(), 100).map(stripAnsi);
-    assert.equal(recollapsed.filter((line) => line.includes('Thinking…')).length, 2);
+    assert.equal(recollapsed.filter((line) => line.includes('Thought')).length, 2);
     assert.equal(
       recollapsed.some((line) => line.includes('thought body')),
       false,

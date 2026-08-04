@@ -251,6 +251,80 @@ describe('CLI turn-tail prompt', () => {
       assert.match(out, /Today's date:/);
     });
   });
+
+  test('surfaces relevant skills at the turn tail when the task matches', async () => {
+    await withCwd(async (cwd) => {
+      const { SkillSurfaceTracker } = await import('@maka/runtime');
+      const tracker = new SkillSurfaceTracker();
+      const out = await buildCliTurnTailPrompt({
+        cwd,
+        sessionId: 's1',
+        currentUserText: 'test SQL injection on the login form',
+        advertisedSkillRefs: new Set(),
+        surfaceTracker: tracker,
+        resolveInventory: async () => [
+          {
+            ref: 'user:maka:sql-injection-testing',
+            id: 'sql-injection-testing',
+            name: 'sql-injection-testing',
+            description: 'SQL injection assessment. NOT for general database work.',
+            scope: 'user',
+            source: 'maka',
+            path: '/skills/sql-injection-testing',
+            discoveryRoot: '/skills',
+            declaredTools: [],
+            requiredTools: [],
+            requiredCapabilities: [],
+            enabled: true,
+            pinned: false,
+            runtimeStatus: 'enabled',
+            precedence: 0,
+            content: '',
+            contentSha256: '',
+          },
+        ],
+      });
+      assert.ok(out.includes('<relevant-skills'), 'relevance block should be present');
+      assert.ok(out.includes('sql-injection-testing'), 'matched skill should be surfaced');
+      assert.ok(out.includes('call Skill with this exact name'), 'should instruct Skill load');
+    });
+  });
+
+  test('does not re-surface a skill already visible in the static catalog', async () => {
+    await withCwd(async (cwd) => {
+      const { SkillSurfaceTracker } = await import('@maka/runtime');
+      const tracker = new SkillSurfaceTracker();
+      const out = await buildCliTurnTailPrompt({
+        cwd,
+        sessionId: 's1',
+        currentUserText: 'test SQL injection on the login form',
+        advertisedSkillRefs: new Set(['user:maka:sql-injection-testing']),
+        surfaceTracker: tracker,
+        resolveInventory: async () => [
+          {
+            ref: 'user:maka:sql-injection-testing',
+            id: 'sql-injection-testing',
+            name: 'sql-injection-testing',
+            description: 'SQL injection assessment. NOT for general database work.',
+            scope: 'user',
+            source: 'maka',
+            path: '/skills/sql-injection-testing',
+            discoveryRoot: '/skills',
+            declaredTools: [],
+            requiredTools: [],
+            requiredCapabilities: [],
+            enabled: true,
+            pinned: false,
+            runtimeStatus: 'enabled',
+            precedence: 0,
+            content: '',
+            contentSha256: '',
+          },
+        ],
+      });
+      assert.ok(!out.includes('<relevant-skills'), 'already-visible skill must not re-surface');
+    });
+  });
 });
 
 async function withCwd(fn: (cwd: string, homeDir: string) => Promise<void>): Promise<void> {

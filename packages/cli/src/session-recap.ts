@@ -15,12 +15,12 @@ export const AUTO_RECAP_DISPLAY_LIMIT_BYTES = 500;
 
 /**
  * Cleans a raw model recap response: collapses whitespace, strips a leading
- * `Recap:` / `Summary:` / `回顾：`-style label, strips one layer of wrapping
+ * `Recap:` / `Summary:`-style label, strips one layer of wrapping
  * quotes, and truncates to 1200 characters (with an ellipsis) if needed.
  */
 export function cleanRecapText(raw: string): string {
   let text = raw.replace(/\s+/g, ' ').trim();
-  text = text.replace(/^(recap|summary|回顾)\s*[:：]\s*/i, '').trim();
+  text = text.replace(/^(recap|summary)\s*[:：]\s*/i, '').trim();
 
   const quotePairs: ReadonlyArray<readonly [string, string]> = [
     ['"', '"'],

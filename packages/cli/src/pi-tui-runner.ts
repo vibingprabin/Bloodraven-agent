@@ -95,6 +95,8 @@ import {
 } from './tui-attention.js';
 import {
   MakaActivityStripComponent,
+  MakaBrandBarComponent,
+  MakaDividerComponent,
   MakaPendingQueueComponent,
   MakaPiLayoutComponent,
   MakaStatusLineComponent,
@@ -279,8 +281,10 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
   });
 
   const transcript = new MakaTranscriptComponent(state, metadata);
+  const brandBar = new MakaBrandBarComponent(metadata);
   const activityStrip = new MakaActivityStripComponent(metadata);
   const pendingQueue = new MakaPendingQueueComponent(state);
+  const divider = new MakaDividerComponent();
   const statusLine = new MakaStatusLineComponent(metadata);
   // Show the whole slash-command set at once — discoverability is the point of
   // the menu. Keep a little headroom above the current command count.
@@ -292,9 +296,11 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
   const editorSurface = new MakaAutocompleteAboveEditorComponent(editor);
   const layout = new MakaPiLayoutComponent(
     state,
+    brandBar,
     transcript,
     activityStrip,
     pendingQueue,
+    divider,
     editorSurface,
     statusLine,
     terminal,
@@ -382,11 +388,11 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
   void listSkillsCached(true);
 
   const SKILL_INVOCATION_FAILURE_REASON_LABEL: Record<string, string> = {
-    not_found: '未找到',
-    disabled: '已禁用',
-    host_incompatible: '当前主机缺少其依赖的工具',
-    invalid_name: '名称无效',
-    too_many_requests: '调用请求过多',
+    not_found: 'not found',
+    disabled: 'disabled',
+    host_incompatible: 'host missing required tools',
+    invalid_name: 'invalid name',
+    too_many_requests: 'too many requests',
   };
 
   interface PreparedSkillPrompt {
@@ -411,16 +417,16 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     const failed = prepared.skillInvocation.failed;
     const failedLabels = failed.map((entry) =>
       entry.reason === 'too_many_requests'
-        ? `请求超过 ${entry.requestLimit} 个上限（${SKILL_INVOCATION_FAILURE_REASON_LABEL[entry.reason]}）`
-        : `/skill:${entry.request}（${SKILL_INVOCATION_FAILURE_REASON_LABEL[entry.reason] ?? entry.reason}）`,
+        ? `exceeded ${entry.requestLimit} request limit (${SKILL_INVOCATION_FAILURE_REASON_LABEL[entry.reason]})`
+        : `/skill:${entry.request} (${SKILL_INVOCATION_FAILURE_REASON_LABEL[entry.reason] ?? entry.reason})`,
     );
     const warnings =
       failed.length > 0
         ? [
-            `未能加载技能 ${failedLabels.join('、')}；${
+            `could not load skill(s) ${failedLabels.join(', ')}; ${
               prepared.disposition === 'blocked'
-                ? '未发起模型请求。'
-                : '失败的调用标记未发送给模型。'
+                ? 'no model request was made.'
+                : 'failed invocation markers were not sent to the model.'
             }`,
           ]
         : [];
@@ -480,7 +486,6 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     busy = true;
     const activity = beginActivity();
     editor.disableSubmit = true;
-    terminal.setProgress(true);
     attention.controlStarted();
     requestRender();
     let sessionActivity: SessionActivityLease | undefined;
@@ -699,7 +704,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
         state.entries.push({
           kind: 'notice',
           level: 'info',
-          text: `已加载技能：${prepared.loadedNames.join('、')}`,
+          text: `loaded skill(s): ${prepared.loadedNames.join(', ')}`,
         });
       }
       if (prepared.disposition === 'blocked') return;
@@ -915,7 +920,6 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     // Re-enable submit after skill-prep's disableSubmit hold: Enter must steer
     // a running turn (see editor.onSubmit) instead of being swallowed.
     editor.disableSubmit = false;
-    terminal.setProgress(true);
     attention.promptTurnStarted();
     requestRender();
 
@@ -1194,7 +1198,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     state.entries.push({
       kind: 'notice',
       level: 'info',
-      text: '已回退到该轮之前（分支为新会话，原会话保留），该轮 prompt 已回填输入框，可修改后重新发送。',
+      text: 'Reverted to before this turn (branching creates a new session; the original session is preserved). The turn prompt was filled back into the input so you can edit and resend it.',
     });
     requestRender();
   };
@@ -1339,7 +1343,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       return;
     }
     if (!input.onboarding) {
-      wizard.setKeyError('Onboarding 不可用：当前运行环境未提供配置入口。');
+      wizard.setKeyError('Onboarding unavailable: the current runtime does not provide a setup entry point.');
       requestRender();
       return;
     }
@@ -1354,7 +1358,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
         if (result.kind === 'error') {
           // Probe failed: re-arm the key field in place. The host stores nothing
           // during verify, so retrying with a corrected key is clean.
-          wizard.setKeyError(`API key 验证失败：${result.text}。请检查后重新输入。`);
+          wizard.setKeyError(`API key verification failed: ${result.text}. Please check and re-enter it.`);
           requestRender();
           return;
         }
@@ -1364,7 +1368,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       },
       (error) => {
         if (closed || wizard !== targetWizard || attempt !== wizardAttempt) return;
-        wizard.setKeyError(`配置失败：${error instanceof Error ? error.message : String(error)}`);
+        wizard.setKeyError(`Setup failed: ${error instanceof Error ? error.message : String(error)}`);
         requestRender();
       },
     );
@@ -1378,7 +1382,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     const providerType = wizardProviderType;
     if (!providerType || !wizard) return;
     if (!input.onboarding) {
-      wizard.setModelError('Onboarding 不可用：当前运行环境未提供配置入口。');
+      wizard.setModelError('Onboarding unavailable: the current runtime does not provide a setup entry point.');
       requestRender();
       return;
     }
@@ -1413,7 +1417,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
         (error) => {
           if (closed || wizard !== targetWizard || attempt !== wizardAttempt) return;
           wizard.setModelError(
-            `保存失败：${error instanceof Error ? error.message : String(error)}`,
+            `Save failed: ${error instanceof Error ? error.message : String(error)}`,
           );
           requestRender();
         },
@@ -1429,7 +1433,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
         state.entries.push({
           kind: 'notice',
           level: 'info',
-          text: `无法读取已配置的连接：${error instanceof Error ? error.message : String(error)}`,
+          text: `could not read configured connections: ${error instanceof Error ? error.message : String(error)}`,
         });
         requestRender();
         return;
@@ -1447,7 +1451,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       state.entries.push({
         kind: 'notice',
         level: 'info',
-        text: '没有可配置的 API key 类供应商。',
+        text: 'No API-key providers are configurable.',
       });
       requestRender();
       return;
@@ -1671,7 +1675,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       state.entries.push({
         kind: 'notice',
         level: 'error',
-        text: `读取外部会话失败：${detail}`,
+        text: `failed to read foreign sessions: ${detail}`,
       });
     } else {
       for (const summary of foreignScan.summaries) {
@@ -1749,7 +1753,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       state.entries.push({
         kind: 'notice',
         level: 'info',
-        text: '没有可回退的轮次。',
+        text: 'No turns to rewind to.',
       });
       requestRender();
       return;
@@ -1768,7 +1772,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       {
         minPrimaryColumnWidth: 24,
         maxPrimaryColumnWidth: 48,
-        hint: '回到选定轮次之前（丢弃该轮及之后，prompt 回填输入框） · enter 选择 / esc 取消',
+        hint: 'rewind to before the selected turn (drops that turn and later; prompt refilled into input) · enter select / esc cancel',
       },
     );
   };
@@ -1899,7 +1903,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       state.entries.push({
         kind: 'notice',
         level: 'info',
-        text: '当前没有可调用的技能。',
+        text: 'There are currently no invocable skills.',
       });
       requestRender();
       return;
@@ -2244,7 +2248,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
           state.entries.push({
             kind: 'notice',
             level: 'error',
-            text: 'Usage: /skill，或直接在消息中输入 /skill:<name>',
+            text: 'Usage: /skill, or type /skill:<name> directly in a message',
           });
           requestRender();
           return;
@@ -2310,7 +2314,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
             state.entries.push({
               kind: 'notice',
               level: 'info',
-              text: '当前模型不支持思考级别切换。',
+              text: 'The current model does not support thinking-level switching.',
             });
             requestRender();
             return;
@@ -2320,7 +2324,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
         }
         const token = parts.length === 2 ? parts[1] : undefined;
         // `off` is a real level now (maps to reasoningEffort:'none' / thinking
-        // disabled), not a synonym for 默认. Only `default` clears the override.
+        // disabled), not a synonym for default. Only `default` clears the override.
         const level = token === 'default' ? undefined : token;
         // Reject levels the current model does not support (P2-1): the picker
         // already restricts to `thinkingLevels`, but the typed command path
@@ -2331,7 +2335,7 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
             level: 'error',
             text:
               thinkingLevels.length === 0
-                ? '当前模型不支持思考级别切换。'
+                ? 'The current model does not support thinking-level switching.'
                 : `Usage: /thinking ${['default', ...thinkingLevels].join('|')}`,
           });
           requestRender();
@@ -2551,6 +2555,14 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       }
     }
     if (matchesKey(data, Key.ctrl('t')) && !isKeyRepeat(data)) {
+      if (toggleAllThinkingExpansion(state)) {
+        requestRender();
+        return { consume: true };
+      }
+    }
+    // Windows Terminal swallows Ctrl+T (it opens a new tab), so the thinking
+    // toggle is also bound to Ctrl+P, which Windows Terminal passes through.
+    if (matchesKey(data, Key.ctrl('p')) && !isKeyRepeat(data)) {
       if (toggleAllThinkingExpansion(state)) {
         requestRender();
         return { consume: true };

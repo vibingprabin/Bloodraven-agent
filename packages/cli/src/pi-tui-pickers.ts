@@ -659,12 +659,12 @@ export class ModelSearchOverlay implements Component {
     this.searchEditor.focused = true;
     return [
       padLine(`Select Model ${ansi.accent(String(this.filtered.length))}`, safeWidth),
-      padLine(ansi.dim('搜索模型 / 服务商 / 连接 · ↑↓ 选择 · Enter 确认 · Esc 取消'), safeWidth),
+      padLine(ansi.dim('search model / provider / connection · ↑↓ select · Enter confirm · Esc cancel'), safeWidth),
       padLine('', safeWidth),
-      ...this.renderFieldRow(this.searchEditor, '搜索', safeWidth),
+      ...this.renderFieldRow(this.searchEditor, 'search', safeWidth),
       padLine('', safeWidth),
       ...(this.filtered.length === 0
-        ? [padLine(ansi.dim('没有匹配的模型'), safeWidth)]
+        ? [padLine(ansi.dim('no matching model'), safeWidth)]
         : this.list.render(safeWidth).map((line) => formatPickerItemLine(line, safeWidth))),
       padLine(ansi.accent('-'.repeat(safeWidth)), safeWidth),
     ];
@@ -713,7 +713,7 @@ export function permissionModePickerItems(currentMode: PermissionMode): SelectIt
 /**
  * `/skill` picker items (issue #1148). The value is the skill id (that's what
  * the inserted `/skill:<id>` token resolves by); the description carries the
- * id too, since CJK display names alone don't tell the user what to type.
+ * id too, since display names alone don't tell the user what to type.
  */
 export function skillPickerItems(skills: readonly InvocableSkillEntry[]): SelectItem[] {
   return skills.map((skill) => ({
@@ -724,7 +724,7 @@ export function skillPickerItems(skills: readonly InvocableSkillEntry[]): Select
 }
 
 /** Provider search items for `/setup`, marking connections that already exist
- *  `已设置` so a re-onboard reads as edit/rotate rather than create. */
+ *  `configured` so a re-onboard reads as edit/rotate rather than create. */
 export function onboardingProviderPickerItems(
   providers: readonly OnboardingProviderEntry[],
 ): SelectItem[] {
@@ -732,19 +732,19 @@ export function onboardingProviderPickerItems(
     value: provider.providerType,
     label: provider.label,
     description: provider.hasConnection
-      ? `${provider.providerType} · 已设置`
+      ? `${provider.providerType} · configured`
       : provider.providerType,
   }));
 }
 
 const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
-  off: '关',
-  minimal: '最小',
-  low: '低',
-  medium: '中',
-  high: '高',
-  xhigh: '超高',
-  max: '最高',
+  off: 'off',
+  minimal: 'minimal',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  xhigh: 'extra high',
+  max: 'max',
 };
 
 export function thinkingLevelPickerItems(
@@ -754,7 +754,7 @@ export function thinkingLevelPickerItems(
   return [
     {
       value: 'default',
-      label: '默认',
+      label: 'default',
       ...(current === undefined ? { description: 'current' } : {}),
     },
     ...levels.map((level) => ({
@@ -1063,7 +1063,7 @@ export class OnboardingWizard implements Component {
     if (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) {
       if (isKeyRepeat(data)) return;
       if (this.selectedIds.size === 0) {
-        this.status = { kind: 'error', text: '至少选择一个模型再保存' };
+        this.status = { kind: 'error', text: 'Select at least one model before saving' };
         return;
       }
       this.input.onSubmitModels([...this.selectedIds]);
@@ -1103,7 +1103,7 @@ export class OnboardingWizard implements Component {
     if (!model) return;
     if (this.selectedIds.has(model.id)) this.selectedIds.delete(model.id);
     else this.selectedIds.add(model.id);
-    // Clear a stale "至少选择一个模型" error once a selection exists.
+    // Clear a stale "select at least one model" error once a selection exists.
     if (this.status.kind === 'error' && this.selectedIds.size > 0) {
       this.status = { kind: 'prompt' };
     }
@@ -1132,12 +1132,12 @@ export class OnboardingWizard implements Component {
         `Set Up Provider ${ansi.dim('· 1/3')} ${ansi.accent(String(this.filtered.length))}`,
         width,
       ),
-      padLine(ansi.dim('搜索服务商，↑↓ 选择 · Enter 确认 · Esc 取消'), width),
+      padLine(ansi.dim('search providers, ↑↓ select · Enter confirm · Esc cancel'), width),
       padLine('', width),
-      ...this.renderFieldRow(this.searchEditor, '搜索', width),
+      ...this.renderFieldRow(this.searchEditor, 'search', width),
       padLine('', width),
       ...(this.filtered.length === 0
-        ? [padLine(ansi.dim('没有匹配的服务商'), width)]
+        ? [padLine(ansi.dim('no matching provider'), width)]
         : this.list.render(width).map((line) => formatPickerItemLine(line, width))),
       padLine(ansi.accent('-'.repeat(width)), width),
     ];
@@ -1149,8 +1149,8 @@ export class OnboardingWizard implements Component {
     this.modelsSearchEditor.focused = false;
     const label = this.picked?.label ?? '';
     const hint = this.picked?.hasConnection
-      ? '留空复用已保存的 key，或输入新 key 轮换 · Esc 返回选择服务商'
-      : '输入 API key · 仅本机存储 · Esc 返回选择服务商';
+      ? 'leave empty to reuse the saved key, or enter a new key to rotate · Esc back to provider'
+      : 'enter API key · stored locally only · Esc back to provider';
     return [
       padLine(`Set Up Provider ${ansi.dim('· 2/3')} ${ansi.accent(label)}`, width),
       padLine(ansi.dim(hint), width),
@@ -1165,13 +1165,13 @@ export class OnboardingWizard implements Component {
   private renderKeyStatusLine(): string {
     switch (this.status.kind) {
       case 'prompt':
-        return ansi.dim('Enter 提交');
+        return ansi.dim('Enter submit');
       case 'verifying':
-        return `${ansi.yellow('⠋')} 正在验证 key…`;
+        return `${ansi.yellow('⠋')} verifying key…`;
       case 'error':
         return ansi.red(`✗ ${this.status.text}`);
       case 'saving':
-        return ansi.dim('Enter 提交');
+        return ansi.dim('Enter submit');
     }
   }
 
@@ -1182,13 +1182,13 @@ export class OnboardingWizard implements Component {
     const label = this.picked?.label ?? '';
     const lines = [
       padLine(`Set Up Provider ${ansi.dim('· 3/3')} ${ansi.accent(label)}`, width),
-      padLine(ansi.dim('搜索模型，↑↓ 选择 · Space 切换 · Enter 保存 · Esc 返回'), width),
+      padLine(ansi.dim('search models, ↑↓ select · Space toggle · Enter save · Esc back'), width),
       padLine('', width),
-      ...this.renderFieldRow(this.modelsSearchEditor, '搜索', width),
+      ...this.renderFieldRow(this.modelsSearchEditor, 'search', width),
       padLine('', width),
     ];
     if (this.filteredModels.length === 0) {
-      lines.push(padLine(ansi.dim('没有匹配的模型'), width));
+      lines.push(padLine(ansi.dim('no matching model'), width));
     } else {
       const end = Math.min(
         this.modelScroll + ONBOARDING_MODELS_MAX_VISIBLE,
@@ -1211,11 +1211,11 @@ export class OnboardingWizard implements Component {
   private renderModelsStatusLine(): string {
     switch (this.status.kind) {
       case 'prompt':
-        return ansi.dim(`已选 ${this.selectedIds.size} · Enter 保存`);
+        return ansi.dim(`selected ${this.selectedIds.size} · Enter save`);
       case 'verifying':
-        return ansi.dim(`已选 ${this.selectedIds.size}`);
+        return ansi.dim(`selected ${this.selectedIds.size}`);
       case 'saving':
-        return `${ansi.yellow('⠋')} 正在保存…`;
+        return `${ansi.yellow('⠋')} saving…`;
       case 'error':
         return ansi.red(`✗ ${this.status.text}`);
     }
@@ -1227,10 +1227,10 @@ export class OnboardingWizard implements Component {
     this.modelsSearchEditor.focused = false;
     const label = this.picked?.label ?? '';
     return [
-      padLine(`Set Up Provider ${ansi.dim('· 完成')} ${ansi.accent(label)}`, width),
-      padLine(ansi.green(`✓ 已启用 ${this.successCount} 个模型`), width),
+      padLine(`Set Up Provider ${ansi.dim('· done')} ${ansi.accent(label)}`, width),
+      padLine(ansi.green(`✓ enabled ${this.successCount} model(s)`), width),
       padLine('', width),
-      padLine(ansi.dim('Enter 关闭'), width),
+      padLine(ansi.dim('Enter close'), width),
       padLine(ansi.accent('-'.repeat(width)), width),
     ];
   }

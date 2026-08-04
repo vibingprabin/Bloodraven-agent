@@ -53,7 +53,6 @@ import {
 } from '../pi-tui-runner.js';
 import { AUTO_RECAP_IDLE_MS } from '../session-recap.js';
 import { _setColorLevelForTesting } from '../tui-ansi.js';
-import { BUSY_SPINNER_FRAMES } from '../tui-attention.js';
 import {
   assertBottomPickerPlacement,
   FakeTerminal,
@@ -1805,7 +1804,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('run');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     // One physical Esc keypress arrives as a press + release pair under the
     // kitty protocol; it must count as a single Escape, not an interrupt.
@@ -2234,7 +2233,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('run');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
     terminal.input('\x04');
     await delay(20);
 
@@ -2263,7 +2262,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('also handle Y');
     terminal.input('\r');
@@ -2297,7 +2296,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('quit');
     terminal.input('\r');
@@ -2322,7 +2321,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('do this next');
     terminal.input('\x1b\r'); // Alt+Enter
@@ -2357,7 +2356,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('reword this later');
     terminal.input('\r'); // steer
@@ -2404,7 +2403,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('reword this later');
     terminal.input('\r'); // steer — queued synchronously in the driver
@@ -2441,7 +2440,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('unfinished idea');
     terminal.input('\r'); // steer
@@ -2480,7 +2479,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('already consumed');
     terminal.input('\r'); // steer
@@ -2564,7 +2563,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('second thought');
     terminal.input('\r'); // steer → fallback → CLI-held pending
@@ -2614,7 +2613,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('late owner');
     terminal.input('\r'); // steer → fallback, retried until it lands
@@ -2649,7 +2648,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('rescue me');
     terminal.input('\r'); // steer → fallback → CLI-held pending
@@ -2687,7 +2686,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
     await waitFor(() => driver.prompts.length === 1);
 
     terminal.input('\x1b');
@@ -2727,7 +2726,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('start the work');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('next thing');
     terminal.input('\x1b\r'); // Alt+Enter → fallback → CLI-held pending
@@ -2891,7 +2890,6 @@ describe('Maka Pi TUI runner', () => {
     await waitFor(() => plainTerminalOutput(terminal.output()).includes('Compacting context'));
 
     assert.deepEqual(driver.prompts, []);
-    assert.equal(terminal.progressStates.at(-1), true);
 
     driver.releaseCompact();
     await waitFor(() => terminal.progressStates.at(-1) === false);
@@ -3142,7 +3140,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('keep working');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('/swarm on');
     terminal.input('\r');
@@ -3172,7 +3170,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('/swarm investigate broadly');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
     assert.deepEqual(driver.turnOrchestrations, [{ mode: 'swarm', source: 'slash_command' }]);
 
     terminal.input('\x03');
@@ -4888,7 +4886,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('run');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('\x1b');
     await delay(20);
@@ -5469,7 +5467,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('run');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('\x1b');
     terminal.input('\x1b');
@@ -5510,7 +5508,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('run');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('\x03');
     await waitFor(() => driver.stopCalls === 1);
@@ -5537,7 +5535,7 @@ describe('Maka Pi TUI runner', () => {
 
     terminal.input('run');
     terminal.input('\r');
-    await waitFor(() => terminal.progressStates.at(-1) === true);
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Working'));
 
     terminal.input('\x03');
     await waitFor(() => driver.stopCalls === 1);

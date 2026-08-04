@@ -24,16 +24,25 @@ describe('tui-ansi semantic slots (#1053)', () => {
 describe('color capability fallback (#1064)', () => {
   test('adapts semantic and basic styles to each terminal color level', () => {
     const cases = [
-      [3, '\x1b[38;2;87;163;239mx\x1b[39m', '\x1b[38;2;128;132;140mx\x1b[39m', '\x1b[1mx\x1b[22m'],
-      [2, '\x1b[38;5;75mx\x1b[39m', '\x1b[38;5;102mx\x1b[39m', '\x1b[1mx\x1b[22m'],
-      [1, '\x1b[37mx\x1b[39m', '\x1b[90mx\x1b[39m', '\x1b[1mx\x1b[22m'],
-      [0, 'x', 'x', 'x'],
+      [
+        3,
+        '\x1b[38;2;197;40;33mx\x1b[39m', // accent: brightened eye red #c52821
+        '\x1b[38;2;109;18;18mx\x1b[39m', // accentDeep: exact eye red #6d1212
+        '\x1b[38;2;117;125;135mx\x1b[39m', // muted: cool #757d87
+        '\x1b[38;2;82;88;92mx\x1b[39m', // border: raised chrome #52585c
+        '\x1b[1mx\x1b[22m',
+      ],
+      [2, '\x1b[38;5;160mx\x1b[39m', '\x1b[38;5;52mx\x1b[39m', '\x1b[38;5;102mx\x1b[39m', '\x1b[38;5;59mx\x1b[39m', '\x1b[1mx\x1b[22m'],
+      [1, '\x1b[91mx\x1b[39m', '\x1b[31mx\x1b[39m', '\x1b[90mx\x1b[39m', '\x1b[90mx\x1b[39m', '\x1b[1mx\x1b[22m'],
+      [0, 'x', 'x', 'x', 'x', 'x'],
     ] as const;
 
-    for (const [level, accent, muted, bold] of cases) {
+    for (const [level, accent, accentDeep, muted, border, bold] of cases) {
       _setColorLevelForTesting(level);
       assert.equal(ansi.accent('x'), accent, `accent level ${level}`);
+      assert.equal(ansi.accentDeep('x'), accentDeep, `accentDeep level ${level}`);
       assert.equal(ansi.muted('x'), muted, `muted level ${level}`);
+      assert.equal(ansi.border('x'), border, `border level ${level}`);
       assert.equal(ansi.bold('x'), bold, `bold level ${level}`);
     }
   });

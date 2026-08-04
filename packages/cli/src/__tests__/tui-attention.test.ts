@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { AttentionController, BUSY_SPINNER_FRAMES } from '../tui-attention.js';
+import { AttentionController } from '../tui-attention.js';
 
-const BUSY = `${BUSY_SPINNER_FRAMES[0]} Maka`;
+const BUSY = 'Maka (working)';
 
 const BELL = '\x07';
 
@@ -23,28 +23,19 @@ class SpyTerminal {
   }
 }
 
-/** A controller wired to a spy terminal, a clock, and a spinner ticked by hand. */
+/** A controller wired to a spy terminal and a clock. */
 function makeController(longTurnThresholdMs = 8000) {
   const terminal = new SpyTerminal();
   let clock = 0;
-  let spinnerTick: (() => void) | null = null;
   const controller = new AttentionController(terminal, {
     baseTitle: 'Maka',
     now: () => clock,
     longTurnThresholdMs,
-    // Capture the spinner callback instead of scheduling a real interval so no timer leaks.
-    scheduleSpinnerInterval: (callback) => {
-      spinnerTick = callback;
-      return () => {
-        spinnerTick = null;
-      };
-    },
   });
   return {
     terminal,
     controller,
     advance: (ms: number) => (clock += ms),
-    spinnerRunning: () => spinnerTick !== null,
   };
 }
 
@@ -55,7 +46,7 @@ describe('AttentionController title', () => {
 
     controller.setBaseTitle('Generated title');
 
-    assert.equal(terminal.title, `${BUSY_SPINNER_FRAMES[0]} Generated title`);
+    assert.equal(terminal.title, 'Generated title (working)');
     controller.promptTurnEnded();
     assert.equal(terminal.title, 'Generated title');
   });
@@ -86,16 +77,15 @@ describe('AttentionController title', () => {
     assert.equal(terminal.bells, 0);
   });
 
-  test('stops the spinner while an attention marker overrides the busy marker', () => {
-    const { controller, spinnerRunning } = makeController(8000);
+  test('keeps the title static while busy (no spinner in the title bar)', () => {
+    const { terminal, controller } = makeController(8000);
     controller.focusChanged(false);
     controller.promptTurnStarted();
-    assert.equal(spinnerRunning(), true);
-    // A permission prompt while unfocused mid-turn raises attention (★), which
-    // outranks the busy marker; the spinner must stop rather than animate a
-    // marker that is no longer shown.
+    // The title is a stable "(working)" marker — the braille spinner lives in
+    // the TUI content (activity strip), never the title bar, so no rotation.
+    assert.equal(terminal.title, BUSY);
     controller.attentionNeeded();
-    assert.equal(spinnerRunning(), false);
+    assert.equal(terminal.title, '★ Maka');
   });
 });
 

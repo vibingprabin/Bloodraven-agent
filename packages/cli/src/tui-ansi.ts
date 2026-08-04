@@ -1,10 +1,26 @@
 import type { EditorTheme, SelectListTheme } from '@earendil-works/pi-tui';
 
-// PR #496: desktop --accent = oklch(0.70 0.135 250), rendered here as truecolor ANSI.
-const MAKA_LOGO_BLUE_RGB = [87, 163, 239] as const;
+// Bloodraven theme — k-means extraction from the app icon (D:\Downloads\bg.png),
+// a dark lowpoly scene: a near-black ground, cool gray-blue surfaces and borders,
+// and one warm red accent from the creature's eyes. The base accent is the exact
+// extraction; the working accent is a hue-matched brightening of it (see below).
+const BLOODRAVEN_BG_RGB = [8, 10, 11] as const; // #080a0b — dominant (36.9%)
+const BLOODRAVEN_SURFACE_RGB = [29, 32, 35] as const; // #1d2023 — panels
+const BLOODRAVEN_BORDER_RGB = [54, 59, 62] as const; // #363b3e — quiet chrome
+const BLOODRAVEN_BORDER_HI_RGB = [82, 88, 92] as const; // #52585c — raised chrome
+const BLOODRAVEN_MUTED_RGB = [117, 125, 135] as const; // #757d87 — dim text
 
-// #1053: neutral cool-grey for muted chrome — done discs and de-emphasised text.
-const MUTED_RGB = [128, 132, 140] as const;
+// The eye red from the icon: rgb(109,18,18) = #6d1212, saturation 0.83. Its
+// contrast against the near-black theme background measures ~1.65:1, which is
+// too dark for thin terminal glyphs (spinner frames, reasoning headers, running
+// discs, the wordmark). `accent` therefore uses a hue-matched brightening of the
+// same red family — hue ≈357° preserved, lightness raised to L=45% — measuring
+// ~3.5:1 on #080a0b, which is legible without leaving the eye-red family.
+// `accentDeep` keeps the exact extraction for large/chrome elements (the input
+// divider band, editor chrome) where a quieter deep tone reads as the lowpoly
+// accent. Verified by measured contrast rather than taste.
+const BLOODRAVEN_ACCENT_RGB = [109, 18, 18] as const; // #6d1212 — exact eye red
+const BLOODRAVEN_ACCENT_TEXT_RGB = [197, 40, 33] as const; // #c52821 — legible text accent
 
 // #1064: detect terminal color capability at module load so truecolor is
 // downgraded on basic terminals and disabled entirely under NO_COLOR.
@@ -60,7 +76,9 @@ export function stripAnsi(text: string): string {
 
 export function editorTheme(): EditorTheme {
   return {
-    borderColor: ansi.accent,
+    // Neutral raised-chrome border: the accent is reserved for the divider band
+    // above the input, so a red box here would double up on the separator.
+    borderColor: ansi.border,
     selectList: selectListTheme(),
   };
 }
@@ -89,18 +107,31 @@ function buildAnsi() {
     red: style(31, 39),
     green: style(32, 39),
     yellow: style(33, 39),
-    accent: colorLevel === 0 ? identity : colorFn(MAKA_LOGO_BLUE_RGB, colorLevel),
-    muted: colorLevel === 0 ? identity : colorFn(MUTED_RGB, colorLevel),
+    // Brightened eye red — thin text, discs, wordmark, reasoning headers.
+    accent: colorLevel === 0 ? identity : colorFn(BLOODRAVEN_ACCENT_TEXT_RGB, colorLevel),
+    // Exact icon extraction — large/chrome surfaces (the input divider band).
+    accentDeep: colorLevel === 0 ? identity : colorFn(BLOODRAVEN_ACCENT_RGB, colorLevel),
+    // #757d87 cool muted — dim text, de-emphasised chrome.
+    muted: colorLevel === 0 ? identity : colorFn(BLOODRAVEN_MUTED_RGB, colorLevel),
+    // #52585c raised border — quiet structural lines and editor chrome.
+    border: colorLevel === 0 ? identity : colorFn(BLOODRAVEN_BORDER_HI_RGB, colorLevel),
     reverse: style(7, 27),
   };
 }
 
 function detectColorLevel(): 0 | 1 | 2 | 3 {
-  return detectColorLevelFromEnv({
+  const level = detectColorLevelFromEnv({
     NO_COLOR: process.env.NO_COLOR,
     TERM: process.env.TERM,
     COLORTERM: process.env.COLORTERM,
   });
+  // Windows PowerShell/cmd do not set TERM or COLORTERM, yet Windows Terminal,
+  // VS Code integrated terminal, and conhost are all truecolor-capable. Treat
+  // an unset TERM on win32 as truecolor (level 3) rather than colorless — the
+  // Bloodraven theme (crimson accent, colored discs, spinner) is invisible
+  // otherwise.
+  if (level === 0 && !process.env.NO_COLOR && process.platform === 'win32') return 3;
+  return level;
 }
 
 /**

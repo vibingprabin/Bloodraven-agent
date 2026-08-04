@@ -92,18 +92,17 @@ export function handleMakaCliProcessExit(
 
 function helpText(): string {
   return [
-    'Usage: maka',
+    'Usage: bloodraven',
     '',
-    'Launches the Maka terminal UI in the current working directory.',
+    'Launches the Bloodraven terminal UI in the current working directory.',
     '',
     'Commands:',
-    '  maka              Start the TUI',
-    '  maka-agent        Start the TUI',
-    '  maka run ...      Run one non-interactive model turn',
-    '  maka activate ... Run one Cloud Session activation and emit JSONL',
-    '  maka -p ...       Alias for maka run',
-    '  maka eval ...     Run evaluation and autonomous task commands',
-    '  maka inspect ...  Inspect Session, AgentRun, or TaskRun evidence',
+    '  bloodraven         Start the TUI',
+    '  bloodraven run ...  Run one non-interactive model turn',
+    '  bloodraven activate ...  Run one Cloud Session activation and emit JSONL',
+    '  bloodraven -p ...  Alias for bloodraven run',
+    '  bloodraven eval ...  Run evaluation and autonomous task commands',
+    '  bloodraven inspect ...  Inspect Session, AgentRun, or TaskRun evidence',
     '',
     'Options:',
     '  -h, --help        Show help',
@@ -125,8 +124,8 @@ export interface TuiResumeTarget {
 }
 
 /**
- * Pre-check a `--resume` target before the runtime context — and its
- * default-connection resolution — is created. Without this, `tui` startup
+ * Pre-check a `--resume` target before the runtime context â€” and its
+ * default-connection resolution â€” is created. Without this, `tui` startup
  * always resolved the *default* connection first and only switched onto the
  * resumed session's connection/model afterward (inside the runner, via
  * `switchSession`); a session resumed on a non-default (or the only ready)
@@ -137,7 +136,7 @@ export interface TuiResumeTarget {
  * validation) has a live driver to switch.
  *
  * Returns `undefined` when the header can't be read (session missing,
- * corrupt, etc.) — that failure is not reported here. `runMakaPiTui`'s
+ * corrupt, etc.) â€” that failure is not reported here. `runMakaPiTui`'s
  * `switchSession` call already owns the user-visible resume-failure path
  * (a "Could not resume session ...: ... Starting fresh." notice, falling
  * back to a fresh session); this pre-check silently falls back to starting
@@ -247,7 +246,7 @@ export async function runMakaCli(argv: string[] = process.argv.slice(2)): Promis
         });
         await runMakaPiTui({
           driver,
-          title: 'Maka',
+          title: 'Bloodraven',
           cwd: context.cwd,
           model: context.target.model,
           models: selectableModelIdsForTarget(context.target),
@@ -289,7 +288,7 @@ export async function runMakaCli(argv: string[] = process.argv.slice(2)): Promis
  * Turn a startup failure into first-run connection guidance, or `null` when the
  * error is not a `NO_REAL_CONNECTION` failure (so the caller re-throws it). The
  * reason-specific line reuses the shared core copy; the footer explains the CLI
- * has no in-app settings — connections are configured in the desktop app, which
+ * has no in-app settings â€” connections are configured in the desktop app, which
  * writes the same workspace this CLI reads.
  */
 export function formatStartupConnectionError(error: unknown, workspaceRoot: string): string | null {
@@ -300,13 +299,14 @@ export function formatStartupConnectionError(error: unknown, workspaceRoot: stri
   const { matched, reason } = parseNoRealConnectionError(error);
   if (!matched) return null;
   return [
-    '无法启动 Maka：还没有可用的模型连接。',
+    'Cannot start Bloodraven: no usable model connection yet.',
     '',
     describeChatConfigurationReason(reason),
     '',
-    'Maka CLI 复用 Maka 桌面应用的配置。请打开 Maka 桌面应用，在 设置 · 模型',
-    '添加并启用一个模型连接（含 API key），然后重新运行 maka。',
-    `连接与凭据存储于：${workspaceRoot}`,
+    'The Bloodraven CLI reuses the Maka desktop app configuration. Open the Maka',
+    'desktop app, add and enable a model connection (including an API key) under',
+    'Settings > Models, then run maka again.',
+    `Connections and credentials are stored in: ${workspaceRoot}`,
   ].join('\n');
 }
 
@@ -318,7 +318,7 @@ async function runFirstRunOnboarding(workspaceRoot: string): Promise<boolean> {
   const credentialStore = createFileCredentialStore(workspaceRoot);
   await runMakaPiTui({
     driver: createFirstRunSessionDriver(),
-    title: 'Maka',
+    title: 'Bloodraven',
     cwd: process.cwd(),
     model: '',
     connectionSlug: '',
@@ -335,7 +335,7 @@ async function runFirstRunOnboarding(workspaceRoot: string): Promise<boolean> {
       fetchModels: fetchProviderModels,
     }),
   });
-  // Configured iff a connection was actually persisted during the wizard — the
+  // Configured iff a connection was actually persisted during the wizard â€” the
   // wizard only closes after a successful save (or on cancel; see runner firstRun).
   return (await connectionStore.getDefault()) !== null;
 }

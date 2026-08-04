@@ -112,7 +112,7 @@ export function listApiKeyOnboardableProviders(): OnboardableProvider[] {
 
 /** A catalog provider annotated with whether a connection already exists for
  *  it, plus that connection's curated enabled model ids. The wizard's provider
- *  search marks existing providers `已设置` and pre-selects their enabled set in
+ *  search marks existing providers `configured` and pre-selects their enabled set in
  *  the model step; new connections start with no models selected. */
 export interface OnboardingProviderEntry extends OnboardableProvider {
   hasConnection: boolean;
@@ -120,7 +120,7 @@ export interface OnboardingProviderEntry extends OnboardableProvider {
 }
 
 /** Catalog API-key providers (phase 1) annotated with the host's existing
- *  connection state. The wizard calls this when it opens so `已设置` and the
+ *  connection state. The wizard calls this when it opens so `configured` and the
  *  preserved enabled set reflect live storage, not a startup snapshot. */
 export async function listOnboardingProviders(input: {
   connectionStore: Pick<ConnectionStore, 'list'>;
@@ -256,7 +256,7 @@ export async function saveApiKeyConnection(
   }
   const enabled = input.enabledModelIds.map((id) => id.trim()).filter(Boolean);
   if (enabled.length === 0) {
-    return { kind: 'error', text: '至少选择一个模型再保存' };
+    return { kind: 'error', text: 'Select at least one model before saving' };
   }
   const def = PROVIDER_DEFAULTS[input.providerType];
   const suppliedKey = input.apiKey?.trim() ?? '';
