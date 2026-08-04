@@ -14,6 +14,7 @@ import {
 import type { HostCapabilities } from './skills-context.js';
 import type { ToolGroup } from './tool-availability.js';
 import type { MakaTool } from './tool-runtime.js';
+import { mcpProxyToolName } from './mcp-tools.js';
 
 export interface ProductToolSurfacePolicy {
   readonly economy: boolean;
@@ -23,6 +24,17 @@ export interface ProductToolSurfacePolicy {
 export interface NormalizedProductToolSurfacePolicy {
   readonly economy: boolean;
   readonly disabledSurfaceIds: readonly string[];
+}
+
+/**
+ * MCP servers are external tool packs with no catalog surface of their own.
+ * Each connected server becomes its own deferred `load_tools` group so its
+ * schemas stay out of context until the model activates the group. `toolNames`
+ * are the bound `mcp__<server>__<tool>` proxy names for that server.
+ */
+export interface McpServerToolGroup {
+  readonly serverId: string;
+  readonly toolNames: readonly string[];
 }
 
 export interface ProductToolSurfaceIdentity {
@@ -90,6 +102,8 @@ export function projectEffectiveProductToolSurface(input: {
   host: ToolHostId;
   tools: readonly MakaTool[];
   policy: ProductToolSurfacePolicy;
+  /** Connected MCP servers: each becomes its own deferred load_tools group. */
+  mcpServers?: readonly McpServerToolGroup[];
 }): EffectiveProductToolSurface {
   const disabledSurfaceIds = [...new Set(input.policy.disabledSurfaceIds ?? [])].sort();
   const excludedToolNames = new Set<string>();
@@ -106,7 +120,10 @@ export function projectEffectiveProductToolSurface(input: {
   const boundToolNames = new Set(tools.map((tool) => tool.name));
   const toolNames = readonlySetSnapshot(boundToolNames);
   const productToolNames = [...boundToolNames].filter((name) => catalogToolByName(name)).sort();
-  const groups = buildDeferredToolGroupsFromCatalog(input.host, boundToolNames).map((group) =>
+  const groups = [
+    ...buildDeferredToolGroupsFromCatalog(input.host, boundToolNames),
+    ...buildMcpDeferredToolGroups(input.mcpServers ?? [], boundToolNames),
+  ].map((group) =>
     Object.freeze({
       ...group,
       toolNames: Object.freeze([...group.toolNames]),
@@ -175,6 +192,31 @@ export function buildDeferredToolGroupsFromCatalog(
       label: surface.label,
       description: surface.description,
       toolNames,
+    });
+  }
+  return groups;
+}
+
+/**
+ * Deferred `load_tools` groups for MCP servers. Each connected server is one
+ * group keyed by server id; only proxy names that are actually bound appear.
+ * Group membership is disjoint from catalog surfaces (proxy names start with
+ * `mcp__`, which never collides with catalog tool names).
+ */
+export function buildMcpDeferredToolGroups(
+  servers: readonly McpServerToolGroup[],
+  boundToolNames: Iterable<string>,
+): ToolGroup[] {
+  const bound = boundToolNames instanceof Set ? boundToolNames : new Set(boundToolNames);
+  const groups: ToolGroup[] = [];
+  for (const server of servers) {
+    const toolNames = server.toolNames.filter((name) => bound.has(name));
+    if (toolNames.length === 0) continue;
+    groups.push({
+      id: `mcp:${server.serverId}`,
+      label: `MCP ${server.serverId}`,
+      description: `MCP server "${server.serverId}": external tools loaded on demand.`,
+      toolNames: [...toolNames].sort(),
     });
   }
   return groups;

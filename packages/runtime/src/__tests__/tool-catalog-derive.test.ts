@@ -4,6 +4,7 @@ import {
   assertProductBindingCatalogClean,
   buildDeferredToolGroupsFromCatalog,
   buildHostCapabilitiesFromBinding,
+  buildMcpDeferredToolGroups,
   projectEffectiveProductToolSurface,
 } from '../tool-catalog-derive.js';
 import type { MakaTool } from '../tool-runtime.js';
@@ -365,6 +366,125 @@ describe('buildDeferredToolGroupsFromCatalog', () => {
   it('returns no group when a supported surface has zero bound members', () => {
     const groups = buildDeferredToolGroupsFromCatalog('desktop', ['Read', 'Bash']);
     assert.deepEqual(groups, []);
+  });
+});
+
+describe('buildMcpDeferredToolGroups', () => {
+  it('groups bound mcp__ proxy names by server id', () => {
+    const groups = buildMcpDeferredToolGroups(
+      [
+        { serverId: 'nepse', toolNames: ['mcp__nepse__get_market_summary', 'mcp__nepse__get_news'] },
+        { serverId: 'files', toolNames: ['mcp__files__read'] },
+      ],
+      new Set(['mcp__nepse__get_market_summary', 'mcp__nepse__get_news', 'mcp__files__read']),
+    );
+    assert.deepEqual(
+      groups.map((group) => group.id).sort(),
+      ['mcp:files', 'mcp:nepse'],
+    );
+    const nepse = groups.find((group) => group.id === 'mcp:nepse');
+    assert.deepEqual(nepse?.toolNames, ['mcp__nepse__get_market_summary', 'mcp__nepse__get_news']);
+    assert.equal(nepse?.label, 'MCP nepse');
+  });
+
+  it('drops servers with no bound members', () => {
+    const groups = buildMcpDeferredToolGroups(
+      [
+        { serverId: 'nepse', toolNames: ['mcp__nepse__get_market_summary'] },
+        { serverId: 'dead', toolNames: ['mcp__dead__gone'] },
+      ],
+      new Set(['mcp__nepse__get_market_summary']),
+    );
+    assert.deepEqual(groups.map((group) => group.id), ['mcp:nepse']);
+  });
+
+  it('returns no groups when no servers are declared or bound', () => {
+    assert.deepEqual(buildMcpDeferredToolGroups([], new Set(['mcp__nepse__x'])), []);
+    assert.deepEqual(buildMcpDeferredToolGroups([{ serverId: 'nepse', toolNames: ['mcp__nepse__x'] }], new Set()), []);
+  });
+});
+
+describe('projectEffectiveProductToolSurface (MCP groups)', () => {
+  it('adds an MCP load_tools group alongside catalog groups', () => {
+    const surface = projectEffectiveProductToolSurface({
+      host: 'cli',
+      tools: [
+        tool('Read'),
+        tool('agent_spawn'),
+        tool('agent_swarm'),
+        tool('mcp__nepse__get_market_summary'),
+        tool('mcp__nepse__get_news'),
+      ],
+      policy: { economy: true },
+      mcpServers: [
+        {
+          serverId: 'nepse',
+          toolNames: ['mcp__nepse__get_market_summary', 'mcp__nepse__get_news'],
+        },
+      ],
+    });
+
+    assert.deepEqual(
+      surface.toolAvailability.groups.map((group) => group.id).sort(),
+      ['agent', 'mcp:nepse'],
+    );
+    const nepse = surface.toolAvailability.groups.find((group) => group.id === 'mcp:nepse');
+    assert.deepEqual(nepse?.toolNames, ['mcp__nepse__get_market_summary', 'mcp__nepse__get_news']);
+    assert.deepEqual(surface.boundSurfaceIds, ['agent', 'mcp:nepse']);
+  });
+
+  it('gates MCP tools behind load_tools when economy is on and seeds from the ledger', () => {
+    const surface = projectEffectiveProductToolSurface({
+      host: 'cli',
+      tools: [
+        tool('Read'),
+        tool('mcp__nepse__get_market_summary'),
+        tool('mcp__nepse__get_news'),
+      ],
+      policy: { economy: true },
+      mcpServers: [
+        {
+          serverId: 'nepse',
+          toolNames: ['mcp__nepse__get_market_summary', 'mcp__nepse__get_news'],
+        },
+      ],
+    });
+    const runtime = new ToolAvailabilityRuntime(surface.tools, surface.toolAvailability, tool('invalid'));
+
+    // Unloaded: only ungrouped tools + the connector are visible.
+    const unloaded = runtime.prepare(undefined);
+    assert.deepEqual([...unloaded.activeTools].sort(), ['Read', LOAD_TOOLS_NAME]);
+    assert.equal(
+      unloaded.providerTools.some((candidate) => candidate.name === 'mcp__nepse__get_market_summary'),
+      true,
+    );
+
+    // Loaded via ledger seed: MCP tools become active next turn.
+    const loaded = runtime.prepare([
+      {
+        content: { kind: 'function_call', name: LOAD_TOOLS_NAME, args: { group: 'mcp:nepse' } },
+      },
+    ]);
+    assert.deepEqual(
+      [...loaded.activeTools].sort(),
+      ['Read', LOAD_TOOLS_NAME, 'mcp__nepse__get_market_summary', 'mcp__nepse__get_news'],
+    );
+  });
+
+  it('leaves MCP tools visible when economy is off', () => {
+    const surface = projectEffectiveProductToolSurface({
+      host: 'cli',
+      tools: [tool('Read'), tool('mcp__nepse__get_market_summary')],
+      policy: { economy: false },
+      mcpServers: [
+        { serverId: 'nepse', toolNames: ['mcp__nepse__get_market_summary'] },
+      ],
+    });
+    const runtime = new ToolAvailabilityRuntime(surface.tools, surface.toolAvailability, tool('invalid'));
+    assert.deepEqual(
+      [...runtime.prepare(undefined).activeTools].sort(),
+      ['Read', 'mcp__nepse__get_market_summary'],
+    );
   });
 });
 

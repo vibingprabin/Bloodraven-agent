@@ -232,10 +232,13 @@ export class McpClientManager {
     if (result.isError) {
       throw new McpToolCallError(serverId, toolName, summarizeErrorContent(result.content));
     }
-    return {
+    const normalized = {
       content: result.content.map(normalizeContent),
-      structuredContent: result.structuredContent,
     };
+    if (result.structuredContent !== undefined) {
+      return { ...normalized, structuredContent: result.structuredContent };
+    }
+    return normalized;
   }
 
   async test(serverId: string): Promise<McpTestResult> {
