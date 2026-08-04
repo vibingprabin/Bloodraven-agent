@@ -7,6 +7,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
+    "bloodraven": "./dist/cli.js",
     "maka": "./dist/cli.js",
     "maka-agent": "./dist/cli.js"
   },
@@ -22,6 +23,7 @@
     "@earendil-works/pi-tui": "0.80.3",
     "@maka/core": "0.1.0",
     "@maka/headless": "0.1.0",
+    "@maka/mcp": "0.1.0",
     "@maka/runtime": "0.1.0",
     "@maka/runtime-host": "0.1.0",
     "@maka/storage": "0.1.0"

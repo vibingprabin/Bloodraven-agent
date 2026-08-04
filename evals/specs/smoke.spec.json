@@ -1,0 +1,33 @@
+{
+  "configs": [
+    {
+      "id": "smoke",
+      "backend": "fake",
+      "llmConnectionSlug": "fake",
+      "model": "fake-model"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "skill-discovery",
+      "instruction": "Use the SkillSearch or Skill tool to find a skill about financial statement forensics or earnings manipulation. If you find one, write the skill's name and the exact Beneish M-Score threshold it mentions to a file named answer.txt in the current directory. If you cannot find such a skill, write 'NO_SKILL' to answer.txt.",
+      "workspaceDir": "../fixtures/empty-workspace",
+      "verification": {
+        "command": "node verify-skill-discovery.mjs",
+        "timeoutMs": 20000,
+        "protectedPaths": []
+      }
+    },
+    {
+      "id": "tool-calling",
+      "instruction": "Use the Bash tool to run the command `echo EVAL_TOOL_OK`. Then write the exact output of that command to a file named answer.txt in the current directory. If the Bash tool is unavailable, write 'TOOL_UNAVAILABLE' to answer.txt.",
+      "workspaceDir": "../fixtures/empty-workspace",
+      "verification": {
+        "command": "node verify-tool-calling.mjs",
+        "timeoutMs": 20000,
+        "protectedPaths": []
+      }
+    }
+  ]
+}
+

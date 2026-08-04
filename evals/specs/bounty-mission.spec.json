@@ -1,0 +1,22 @@
+{
+  "configs": [
+    {
+      "id": "flash",
+      "backend": "real",
+      "llmConnectionSlug": "opencode-go",
+      "model": "deepseek-v4-flash"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "bugcrowd-mission",
+      "instruction": "BUG BOUNTY TARGETING MISSION — autonomous, persistent, evidence-grounded.\n\nGOAL: Identify the single best bug bounty target on Bugcrowd for an autonomous security researcher, by fetching REAL current data, shortlisting candidates, examining their actual scope, and writing a defensible recommendation. You are not submitting findings — you are doing the recon and targeting decision.\n\nSTEP 1 — FETCH THE TARGET UNIVERSE (real data, via curl.exe):\n- Run: curl.exe -s \"https://bugcrowd.com/engagements.json?category=bug_bounty&sort_by=rewards&sort_direction=desc&page=1\" -o engagements_p1.json\n- Fetch pages 2 and 3 the same way (page=2, page=3). Save each.\n- PowerShell aliases curl to Invoke-WebRequest, so ALWAYS use curl.exe explicitly with -s and -o.\n- Parse the JSON. Each engagement has: name, briefUrl, rewardSummary (minReward/maxReward), scopeRank (1-4), accessStatus, industryName, serviceLevel, isPrivate.\n\nSTEP 2 — SHORTLIST 5 candidates (write to candidates.md):\n- Prefer: accessStatus=open, isPrivate=false, serviceLevel in (Priority Triage, P1 24/7), scopeRank 3-4, decent maxReward, web/API-oriented industry (finance, technology, computer software, cloud).\n- Also list the top-3 highest maxReward programs you saw even if competitive.\n\nSTEP 3 — EXAMINE REAL SCOPE for the top 3 shortlisted (the critical step):\nFor each, fetch the program brief and extract the full in-scope target list:\n1. curl.exe -s -H \"User-Agent: Mozilla/5.0\" \"https://bugcrowd.com/engagements/<slug>\" -o <slug>.html\n2. From the HTML, find data-api-endpoints and extract the getBriefVersionDocument path (look for engagementBriefApi and a changelog UUID path).\n3. Fetch: curl.exe -s \"https://bugcrowd.com<that path>.json\" -o <slug>_scope.json\n4. Parse the scope JSON: the data.scope[] array has inScope targets with name, uri, category. Summarize the attack surface per program: how many in-scope targets, what categories (website/api/android/ios/ip_address), any high-value targets.\n5. Also fetch statistics: curl.exe -s \"https://bugcrowd.com/engagements/<slug>/statistics\" — note rewardedVulnerabilities and averagePayout.\n\nSTEP 4 — PICK ONE TARGET (write to TARGET.md):\nChoose the single best program for an autonomous web/API security researcher. Justify with: (a) scope quality (in-scope web/API targets actually enumerated), (b) payout (max + published table), (c) activity (statistics: rewarded vulns + avg payout + validation time), (d) accessibility (open, priority triage).\n\nSTEP 5 — WRITE THE REPORT (write to REPORT.md in the working directory):\n# BUG BOUNTY TARGETING REPORT\n## Target Universe (N programs, top payouts)\n## Candidates Shortlist (5, with bounty + rationale)\n## Scope Analysis (top-3, enumerated in-scope targets per program)\n## RECOMMENDED TARGET: <name> — <slug>\n  - Why: scope / payout / activity / accessibility (with the actual numbers you fetched)\n  - First moves for an autonomous researcher (which in-scope targets to attack first, e.g. API endpoints, login flows)\n  - Safety note: this is recon only; actual testing requires an authorized account on the program.\n\nCONSTRAINTS:\n- Only use REAL data you fetched in this session. If a fetch fails, say so and continue with what you have.\n- Throttle: sleep 1 second between program-page fetches to avoid a WAF ban.\n- Do not fabricate scope entries or bounties. If scope JSON is empty/unparseable, note it.\n- Save every fetched JSON/HTML file with a clear name in the working directory as evidence.\n- Write the three files: candidates.md, TARGET.md, REPORT.md.\n\nStart now. Begin with STEP 1: fetch the engagements JSON pages.",
+      "workspaceDir": "../fixtures/bounty-workspace",
+      "verification": {
+        "command": "node verify-bounty.mjs",
+        "timeoutMs": 30000,
+        "protectedPaths": []
+      }
+    }
+  ]
+}

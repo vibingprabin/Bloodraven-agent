@@ -1,0 +1,49 @@
+{
+  "configs": [
+    {
+      "id": "smoke",
+      "backend": "fake",
+      "llmConnectionSlug": "fake",
+      "model": "fake-model"
+    },
+    {
+      "id": "flash",
+      "backend": "real",
+      "llmConnectionSlug": "opencode-go",
+      "model": "deepseek-v4-flash"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "skill-discovery",
+      "instruction": "Use the SkillSearch or Skill tool to find a skill about financial statement forensics or earnings manipulation. If you find one, write the skill's name and the exact Beneish M-Score threshold it mentions to a file named answer.txt in the current directory. If you cannot find such a skill, write 'NO_SKILL' to answer.txt.",
+      "workspaceDir": "../fixtures/empty-workspace",
+      "verification": {
+        "command": "node verify-skill-discovery.mjs",
+        "timeoutMs": 20000,
+        "protectedPaths": []
+      }
+    },
+    {
+      "id": "tool-calling",
+      "instruction": "Use the Bash tool to run the command `echo EVAL_TOOL_OK`. Then write the exact output of that command to a file named answer.txt in the current directory. If the Bash tool is unavailable, write 'TOOL_UNAVAILABLE' to answer.txt.",
+      "workspaceDir": "../fixtures/empty-workspace",
+      "verification": {
+        "command": "node verify-tool-calling.mjs",
+        "timeoutMs": 20000,
+        "protectedPaths": []
+      }
+    },
+    {
+      "id": "nepse-mcp",
+      "instruction": "Use the nepse MCP tools (they appear as tools named mcp__nepse__*). Call get_market_sentiment. Write to answer.txt: the exact Fear & Greed score number and its label, in the format SCORE=<number> LABEL=<label>. If no nepse MCP tools are available, write 'NO_NEPSE_MCP' to answer.txt.",
+      "workspaceDir": "../fixtures/empty-workspace",
+      "verification": {
+        "command": "node verify-nepse-mcp.mjs",
+        "timeoutMs": 20000,
+        "protectedPaths": []
+      }
+    }
+  ]
+}
+

@@ -217,7 +217,7 @@ interface ManagedSkillUpdateOptions {
 const BUNDLED_CATALOG_BODY_BY_ID = new Map(
   BUNDLED_SKILL_CATALOG.map((skill) => [skill.id, skill.body]),
 );
-const BUNDLED_CATALOG_CATEGORY_DEFAULT: ManagedSkillCategory = '效率工具';
+const BUNDLED_CATALOG_CATEGORY_DEFAULT: ManagedSkillCategory = 'Productivity Tools';
 
 /**
  * Scan `{workspaceRoot}/skills/` for directories that contain a SKILL.md.
@@ -448,7 +448,7 @@ export async function createStarterSkill(root: string): Promise<CreateStarterSki
     // Display name follows the id's ordinal — three clicks used to mint
     // three IDENTICAL 「示例技能」 rows (ids differed, names didn't, and the
     // slug lives in the tooltip), leaving the list visually indistinguishable.
-    const name = index === 1 ? '示例技能' : `示例技能 ${index}`;
+    const name = index === 1 ? 'Example Skill' : `Example Skill ${index}`;
     const skillDir = join(skillsDir, id);
     try {
       await mkdir(skillDir, { mode: 0o700 });
@@ -477,7 +477,7 @@ export async function createStarterSkill(root: string): Promise<CreateStarterSki
           ref: `workspace:legacy:${id}`,
           id,
           name,
-          description: '把常用工作流写成可复用的本地指令。',
+          description: 'Turn your common workflows into reusable local instructions.',
           path: skillDir,
           declaredTools: ['Read'],
           requiredTools: [],

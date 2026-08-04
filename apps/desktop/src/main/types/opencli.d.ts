@@ -1,4 +1,22 @@
 declare module '@jackwener/opencli/types' {
+  export interface BrowserCookie {
+    name: string;
+    value: string;
+    domain: string;
+    path?: string;
+    secure?: boolean;
+    httpOnly?: boolean;
+    expirationDate?: number;
+  }
+  export interface ScreenshotOptions {
+    format?: 'png' | 'jpeg';
+    quality?: number;
+    fullPage?: boolean;
+    annotate?: boolean;
+    width?: number;
+    height?: number;
+    path?: string;
+  }
   export interface IPage {
     goto(url: string, options?: { waitUntil?: 'load' | 'none'; settleMs?: number }): Promise<void>;
     evaluate<T = unknown>(js: string): Promise<T>;
@@ -24,6 +42,19 @@ declare module '@jackwener/opencli/types' {
     pressKey(key: string): Promise<void>;
     wait(options: number | { text?: string; selector?: string; time?: number; timeout?: number }): Promise<void>;
     getCurrentUrl?(): Promise<string>;
+    /** Cybersec: network capture. */
+    networkRequests(includeStatic?: boolean): Promise<unknown[]>;
+    /** Cybersec: console message capture. */
+    consoleMessages(level?: string): Promise<unknown[]>;
+    /** Cybersec: cookie inventory. */
+    getCookies(opts?: { domain?: string; url?: string }): Promise<BrowserCookie[]>;
+    /** Cybersec: request interception. */
+    installInterceptor(pattern: string): Promise<void>;
+    getInterceptedRequests?(): Promise<unknown[]>;
+    /** Cybersec: screenshot (returns base64 PNG). */
+    screenshot(options?: ScreenshotOptions): Promise<string>;
+    /** Raw CDP passthrough. */
+    cdp?(method: string, params?: Record<string, unknown>): Promise<unknown>;
   }
 }
 

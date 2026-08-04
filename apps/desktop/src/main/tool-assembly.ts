@@ -24,6 +24,7 @@ import { buildAgentSettingsTools } from './agent-settings-tools.js';
 import { buildRiveWorkflowTool } from './rive-workflow-tool.js';
 import { buildExploreAgentTool } from './explore-agent-tool.js';
 import { buildBrowserTools } from './browser/browser-tools.js';
+import { buildCyberBrowserTools } from './browser/browser-tools-cyber.js';
 import {
   createComputerUseHost,
   createDesktopPhysicalInputGuard,
@@ -130,7 +131,13 @@ export function assembleDesktopTools(deps: DesktopToolAssemblyDeps) {
   // Embedded-browser observe→act tools. They drive the conversation's own
   // WebContentsView via the BrowserViewHost the desktop provides in registerIpc;
   // outside the app (no host) they report the browser as unavailable.
-  const browserTools: MakaTool[] = buildBrowserTools();
+  const browserTools: MakaTool[] = [
+    ...buildBrowserTools(),
+    // Cybersec browser tools (JS eval, network, console, cookies, security
+    // headers, interception, screenshots) — same CDP surface, same browser
+    // category gate, same visible-lease safety net.
+    ...buildCyberBrowserTools(),
+  ];
   const computerUseOverlay = createCursorOverlayController();
   const computerUseHost = createComputerUseHost({
     isPackaged: app.isPackaged,
