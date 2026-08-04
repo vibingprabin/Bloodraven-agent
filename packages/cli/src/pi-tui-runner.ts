@@ -253,6 +253,9 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
   let turnStartedAt: number | undefined;
   let interruptRequested = false;
   let lastTurnEscapeAt = 0;
+  // Set by a live-turn /yolo; flushed in finishTurnUi once the session store
+  // accepts a permission-mode switch (it refuses while a turn is running).
+  let pendingYoloAfterTurn = false;
   let lastIdleEscapeAt = 0;
   let lastIdleCtrlCAt = 0;
   let unbindGoalHost: (() => void) | undefined;
@@ -901,6 +904,15 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
         }
         return;
       }
+      // A slash command typed during a live turn must route to the command
+      // layer, not be steered into the model as plain chat text. Read-only
+      // commands dispatch immediately; mutating ones (like /permissions)
+      // surface the store's "turn is running" error, and /yolo defers until
+      // the turn ends.
+      if (prompt.trim().startsWith('/')) {
+        editor.addToHistory(prompt);
+        if (handleSlashCommand(prompt, Date.now() - lastActivityAt)) return;
+      }
       steerRunningTurn(prompt);
       return;
     }
@@ -932,7 +944,12 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
       editor.disableSubmit = false;
       terminal.setProgress(false);
       attention.promptTurnEnded();
-      // A turn ending is activity too — resets the idle clock the next
+      // A /yolo requested mid-turn applies now that the turn has ended.
+      if (pendingYoloAfterTurn) {
+        pendingYoloAfterTurn = false;
+        void runControl(() => setPermissionMode('bypass'));
+      }
+      // A turn ending is activity too �?" resets the idle clock the next
       // submission's auto-recap check measures against.
       lastActivityAt = Date.now();
     };
@@ -2363,6 +2380,39 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
           return;
         }
         requestSandboxBoundaryMode(mode);
+      },
+    },
+    {
+      name: 'yolo',
+      description: 'Instantly turn on full access (bypass permission prompts)',
+      run: () => {
+        if (permissionMode === 'bypass') {
+          state.entries.push({
+            kind: 'notice',
+            level: 'info',
+            text: 'Already in full-access (bypass) mode.',
+          });
+          requestRender();
+          return;
+        }
+        // The session store refuses a permission-mode switch while a turn is
+        // running, so a live-turn /yolo defers the switch until the turn ends
+        // instead of erroring. The pending flag flushes in finishTurnUi.
+        if (turnRunning) {
+          pendingYoloAfterTurn = true;
+          state.entries.push({
+            kind: 'notice',
+            level: 'info',
+            text: 'Full access will be enabled when the current turn finishes.',
+          });
+          requestRender();
+          return;
+        }
+        // /yolo is the instant no-confirmation escape hatch: same underlying
+        // switch as "/permissions bypass" but without the picker, so a blocked
+        // sandbox on this host stops being a hard wall between the user and
+        // their files.
+        void runControl(() => setPermissionMode('bypass'));
       },
     },
     {

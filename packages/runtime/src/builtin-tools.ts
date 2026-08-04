@@ -625,14 +625,19 @@ function filesystemWorkerForExecution(
   }
   if (worker) return worker;
   if (ctx.executionBoundary?.kind !== 'managed') return undefined;
+  // No sandbox worker on this host (win32 has none). This is a recoverable
+  // boundary signal, not a terminal failure: the model can call
+  // request_sandbox_boundary to ask the user, and the user can also flip the
+  // session to full access via /yolo. A terminal 'requires_bypass' here would
+  // hard-kill every filesystem tool on sandbox-less platforms.
   throw new SandboxCommandError({
     domain: 'filesystem',
     stage: 'capability',
-    reason: 'requires_bypass',
-    recoverable: false,
+    reason: 'sandbox_boundary_required',
+    recoverable: true,
     profileName: ctx.executionBoundary.profile.name ?? ctx.executionBoundary.profile.type,
     message:
-      'Managed filesystem execution is unavailable because the sandboxed worker cannot be enforced.',
+      'Managed filesystem execution needs your approval: the sandboxed worker cannot be enforced on this host. Run /yolo for full access, or approve a boundary expansion.',
   });
 }
 
@@ -678,14 +683,18 @@ function buildExecutorBashTool(
         ctx.executionBoundary?.kind === 'managed' &&
         profileRequiresSandbox(ctx.executionBoundary.profile)
       ) {
+        // Recoverable boundary signal, not terminal: the model can ask via
+        // request_sandbox_boundary, and the user can flip to full access with
+        // /yolo. On hosts without a command sandbox this keeps Bash usable
+        // instead of hard-failing every command.
         throw new SandboxCommandError({
           domain: 'command',
           stage: 'capability',
-          reason: 'requires_bypass',
-          recoverable: false,
+          reason: 'sandbox_boundary_required',
+          recoverable: true,
           profileName: ctx.executionBoundary.profile.name ?? ctx.executionBoundary.profile.type,
           message:
-            'Managed Bash execution is unavailable because a command sandbox cannot be enforced.',
+            'Managed Bash execution needs your approval: a command sandbox cannot be enforced on this host. Run /yolo for full access, or approve a boundary expansion.',
         });
       }
       const transformed = sandboxOptions.sandboxManager

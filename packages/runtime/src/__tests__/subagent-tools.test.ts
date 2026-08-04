@@ -119,6 +119,8 @@ describe('subagent tools', () => {
       'task',
       'write_back',
       'isolation',
+      'skill',
+      'skill_search',
     ]);
     expect(
       Object.keys(
@@ -126,7 +128,16 @@ describe('subagent tools', () => {
           buildSubagentSpawnTool({ taskLedger: taskLedgerStub(undefined, []) }),
         ),
       ),
-    ).toEqual(['profile', 'subagent_id', 'task', 'write_back', 'isolation', 'task_id']);
+    ).toEqual([
+      'profile',
+      'subagent_id',
+      'task',
+      'write_back',
+      'isolation',
+      'skill',
+      'skill_search',
+      'task_id',
+    ]);
   });
 
   test('agent_spawn rejects task_id when task binding is unavailable', () => {
@@ -1244,6 +1255,85 @@ describe('subagent tools', () => {
         view: 'runtime_events',
       },
     });
+  });
+
+  test('agent_spawn delegates a skill by injecting its instructions into the child spawn', async () => {
+    const tool = buildSubagentSpawnTool({
+      skillDelegation: {
+        resolve: async (name) => {
+          if (name !== 'design-md-claude') return { ok: false, error: `no such skill: ${name}` };
+          return { ok: true, name, instructions: 'CLAUDE DESIGN SPEC: coral CTAs on cream canvas.' };
+        },
+        find: async () => [],
+      },
+    });
+    const calls: unknown[] = [];
+    const result = await tool.impl(
+      { profile: LOCAL_READ_AGENT_PROFILE, task: 'Recreate the landing page', skill: 'design-md-claude' },
+      {
+        sessionId: 'session-1',
+        turnId: 'parent-turn',
+        cwd: '/tmp/cwd',
+        toolCallId: 'tool-skill',
+        abortSignal: new AbortController().signal,
+        emitOutput: () => {},
+        spawnChildSession: async (input) => {
+          calls.push(input);
+          return {
+            profile: input.agentProfile,
+            childSessionId: 'child-skill',
+            agentId: requireBuiltinAgentDefinitionByProfile(input.agentProfile).id,
+            agentName: requireBuiltinAgentDefinitionByProfile(input.agentProfile).name,
+            turnId: 'child-turn',
+            runId: 'child-run',
+            status: 'completed',
+            permissionMode: 'explore',
+            summary: 'done',
+            artifactIds: [],
+          };
+        },
+      },
+    );
+    const call = calls[0] as { skillInstructions?: string; prompt?: string };
+    expect(result).toMatchObject({ kind: 'subagent', status: 'completed' });
+    expect(call?.skillInstructions).toContain('CLAUDE DESIGN SPEC');
+    expect(call?.prompt).toBe('Recreate the landing page');
+  });
+
+  test('agent_spawn skill_search returns matches without spawning a child', async () => {
+    const tool = buildSubagentSpawnTool({
+      skillDelegation: {
+        resolve: async () => ({ ok: false, error: 'unused' }),
+        find: async (query) => [
+          {
+            id: 'api-reverse-engineering',
+            name: 'API Reverse Engineering',
+            description: 'Map and reverse an unknown HTTP API from a spec or proxy capture.',
+          },
+        ],
+      },
+    });
+    let spawned = false;
+    const result = await tool.impl(
+      { profile: LOCAL_READ_AGENT_PROFILE, task: 'ignored', skill_search: 'api reverse engineering' },
+      {
+        sessionId: 'session-1',
+        turnId: 'parent-turn',
+        cwd: '/tmp/cwd',
+        toolCallId: 'tool-finder',
+        abortSignal: new AbortController().signal,
+        emitOutput: () => {},
+        spawnChildSession: async () => {
+          spawned = true;
+          throw new Error('should not spawn');
+        },
+      },
+    );
+    expect(spawned).toBe(false);
+    expect(result).toMatchObject({ kind: 'text' });
+    const text = (result as { text: string }).text;
+    expect(text).toContain('API Reverse Engineering');
+    expect(text).toContain('api-reverse-engineering');
   });
 });
 

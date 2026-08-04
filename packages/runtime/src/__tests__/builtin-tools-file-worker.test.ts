@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 describe('builtin file tools use the sandboxed worker', () => {
-  test('fails closed for managed file operations when the worker is unavailable', async () => {
+  test('signals a recoverable boundary request for managed file operations when the worker is unavailable', async () => {
     const cwd = await temporaryDirectory('maka-file-worker-unavailable-');
     const tools = buildBuiltinTools();
 
@@ -26,7 +26,8 @@ describe('builtin file tools use the sandboxed worker', () => {
         error instanceof Error &&
         Object.assign(error, {}) &&
         (error as Error & { domain?: string; reason?: string }).domain === 'filesystem' &&
-        (error as Error & { reason?: string }).reason === 'requires_bypass',
+        (error as Error & { reason?: string }).reason === 'sandbox_boundary_required' &&
+        (error as Error & { recoverable?: boolean }).recoverable === true,
     );
   });
 

@@ -45,6 +45,24 @@ const CHILD_PROGRESS_ERROR_MAX_CHARS = 1_000;
 
 type SubagentToolResult = Extract<ToolResultContent, { kind: 'subagent' }>;
 
+/**
+ * Resolver the PARENT uses to load a skill's full instructions for delegation.
+ * The parent owns SkillSearch/Skill; the resolved instructions are injected
+ * into the child's system prompt so the skill is read exactly once.
+ */
+export type SkillDelegationResolver = (name: string) => Promise<
+  | { ok: true; name: string; instructions: string }
+  | { ok: false; error: string }
+>;
+
+/**
+ * Parent-side skill search used by the skill-finder spawn mode. Returns
+ * compact metadata matches without loading any skill body into context.
+ */
+export type SkillFinder = (
+  query: string,
+) => Promise<Array<{ id: string; name: string; description: string }>>;
+
 export function buildChildAgentTools(tools: readonly MakaTool[]): MakaTool[] {
   const seen = new Set<string>();
   const out: MakaTool[] = [];
@@ -68,7 +86,11 @@ export function buildChildAgentTools(tools: readonly MakaTool[]): MakaTool[] {
 }
 
 export function buildSubagentSpawnTool(
-  deps: { taskLedger?: TaskLedgerStore; definitions?: readonly AgentDefinition[] } = {},
+  deps: {
+    taskLedger?: TaskLedgerStore;
+    definitions?: readonly AgentDefinition[];
+    skillDelegation?: { resolve: SkillDelegationResolver; find: SkillFinder };
+  } = {},
 ): MakaTool<
   {
     profile?: string;
@@ -77,6 +99,8 @@ export function buildSubagentSpawnTool(
     write_back?: string;
     isolation?: string;
     task_id?: string;
+    skill?: string;
+    skill_search?: string;
   },
   unknown
 > {
@@ -109,6 +133,22 @@ export function buildSubagentSpawnTool(
           .optional()
           .describe(
             'Requested child workspace isolation. Worktree profiles fail closed until a worktree child executor is available.',
+          ),
+        skill: z
+          .string()
+          .min(1)
+          .max(256)
+          .optional()
+          .describe(
+            'Skill ref, id, or name to delegate: its full instructions are injected into the child system prompt. The child reads the skill; the parent does not carry it.',
+          ),
+        skill_search: z
+          .string()
+          .min(1)
+          .max(512)
+          .optional()
+          .describe(
+            'Skill-finder mode: search the skill library and return matching skill names/descriptions without spawning a child or loading any skill body.',
           ),
         ...(deps.taskLedger
           ? {
@@ -152,6 +192,29 @@ export function buildSubagentSpawnTool(
       }),
     categoryHint: 'subagent',
     impl: async (input, ctx) => {
+      if (input.skill_search) {
+        if (!deps.skillDelegation) {
+          throw new Error('Skill search is unavailable in this runtime');
+        }
+        const matches = await deps.skillDelegation.find(input.skill_search);
+        if (matches.length === 0) {
+          return {
+            kind: 'text',
+            text: `No skills matched "${input.skill_search}". Ask the user to point at the right skill by name.`,
+          };
+        }
+        return {
+          kind: 'text',
+          text: [
+            `Skill search "${input.skill_search}":`,
+            ...matches.map(
+              (match, index) =>
+                `${index + 1}. ${match.name} (${match.id}) — ${match.description}`,
+            ),
+            'To delegate one, call agent_spawn again with skill: "<name>" and the child task.',
+          ].join('\n'),
+        };
+      }
       const definition = input.profile
         ? requireAgentDefinitionByProfile(definitions, input.profile)
         : await resolvePresetDefinition(input.subagent_id!, ctx, definitions);
@@ -166,6 +229,17 @@ export function buildSubagentSpawnTool(
         throw new Error(
           `Agent profile "${definition.profile}" requires isolation "${definition.contract.workspace}", not "${requestedIsolation}".`,
         );
+      }
+      let skillInstructions: string | undefined;
+      if (input.skill) {
+        if (!deps.skillDelegation) {
+          throw new Error('Skill delegation is unavailable in this runtime');
+        }
+        const resolved = await deps.skillDelegation.resolve(input.skill);
+        if (!resolved.ok) {
+          throw new Error(`Skill delegation failed: ${resolved.error}`);
+        }
+        skillInstructions = resolved.instructions;
       }
       if (!ctx.spawnChildSession) {
         throw new Error('spawnChildSession capability is unavailable in this runtime context');
@@ -194,6 +268,7 @@ export function buildSubagentSpawnTool(
             agentProfile: definition.profile,
             ...(input.subagent_id ? { subagentId: input.subagent_id } : {}),
             prompt: input.task,
+            ...(skillInstructions !== undefined ? { skillInstructions } : {}),
             ...(boundTask
               ? {
                   onReady: async ({ childSessionId, turnId, agentId }) => {
@@ -497,7 +572,11 @@ export function buildSubagentProjectionTools(): MakaTool[] {
 }
 
 export function buildParentAgentTools(
-  deps: { taskLedger?: TaskLedgerStore; definitions?: readonly AgentDefinition[] } = {},
+  deps: {
+    taskLedger?: TaskLedgerStore;
+    definitions?: readonly AgentDefinition[];
+    skillDelegation?: { resolve: SkillDelegationResolver; find: SkillFinder };
+  } = {},
 ): MakaTool[] {
   const definitions = deps.definitions ?? BUILTIN_AGENT_DEFINITIONS;
   return [

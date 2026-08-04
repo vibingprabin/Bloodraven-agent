@@ -267,6 +267,12 @@ export interface SpawnChildSessionInput {
   runId?: string;
   swarm?: SubagentSessionParent['swarm'];
   abortSignal?: AbortSignal;
+  /**
+   * Full skill instructions to inject into the child's system prompt. The
+   * PARENT resolves the skill (it owns SkillSearch/Skill); only the child's
+   * context ever carries the instructions, so a skill is read exactly once.
+   */
+  skillInstructions?: string;
   onReady?: (input: {
     childSessionId: string;
     turnId: string;
@@ -2831,7 +2837,7 @@ export class SessionManager {
           agentName: input.resolvedPreset?.name ?? definition.name,
           profile: definition.profile,
           ...(input.resolvedPreset ? { presetId: input.resolvedPreset.id } : {}),
-          systemPrompt: definition.systemPrompt,
+          systemPrompt: composeChildSystemPrompt(definition.systemPrompt, input.skillInstructions),
           toolNames: [...definition.tools],
           categoryPolicy: {},
         },
@@ -5872,6 +5878,20 @@ function sameSubagentWorkspace(
   );
 }
 
+/**
+ * Compose a child agent's system prompt from its profile prompt plus any
+ * skill instructions the parent resolved at spawn. The skill body lands only
+ * here, in the child's durable snapshot, so the base agent never carries it
+ * (single-reader skill delegation).
+ */
+function composeChildSystemPrompt(
+  definitionPrompt: string,
+  skillInstructions: string | undefined,
+): string {
+  if (!skillInstructions || skillInstructions.trim().length === 0) return definitionPrompt;
+  return `${definitionPrompt}\n\n# Delegated skill instructions\n${skillInstructions}`;
+}
+
 function childSessionSpawnKey(
   parentSessionId: string,
   input: Pick<SpawnChildSessionInput, 'spawnedBy' | 'swarm'>,
@@ -5890,7 +5910,7 @@ function childSessionRequestFingerprint(
   parentSessionId: string,
   input: Pick<
     ResolvedSpawnChildSessionInput,
-    'spawnedBy' | 'agentProfile' | 'prompt' | 'swarm' | 'resolvedPreset'
+    'spawnedBy' | 'agentProfile' | 'prompt' | 'swarm' | 'resolvedPreset' | 'skillInstructions'
   >,
 ): string {
   const payload = input.resolvedPreset
@@ -5903,6 +5923,7 @@ function childSessionRequestFingerprint(
         input.agentProfile,
         input.resolvedPreset,
         input.prompt,
+        input.skillInstructions ?? null,
         input.swarm?.swarmId ?? null,
         input.swarm?.itemId ?? null,
       ]
@@ -5914,6 +5935,7 @@ function childSessionRequestFingerprint(
         input.spawnedBy.toolCallId,
         input.agentProfile,
         input.prompt,
+        input.skillInstructions ?? null,
         input.swarm?.swarmId ?? null,
         input.swarm?.itemId ?? null,
       ];

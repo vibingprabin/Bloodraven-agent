@@ -49,6 +49,8 @@ import {
   recoverAgentGraphSupervisorContextOverflow,
   resolveSkillDiscoveryPaths,
   resolveCachedSkillInventory,
+  loadSkillInstructions,
+  searchSkills,
   resolveSelectedModelContextWindow,
   projectEffectiveProductToolSurface,
   type AutomationDefinition,
@@ -648,7 +650,30 @@ export async function createMakaCliRuntimeContext(
           getTokenCount: (sessionId: string) => goalTokenCache.get(sessionId) ?? 0,
         })
       : [];
-  const subagentTools = agentGraphEnabled ? buildParentAgentTools() : [];
+  const subagentTools = agentGraphEnabled
+    ? buildParentAgentTools({
+        skillDelegation: {
+          resolve: async (name) => {
+            const source = resolveSkillDiscoveryPaths(input.cwd, configRoot);
+            const loaded = await loadSkillInstructions(source, name);
+            if (!loaded.ok) {
+              return { ok: false, error: loaded.reason ?? `no such skill: ${name}` };
+            }
+            return { ok: true, name: loaded.skill.name, instructions: loaded.skill.instructions };
+          },
+          find: async (query) => {
+            const source = resolveSkillDiscoveryPaths(input.cwd, configRoot);
+            const inventory = await resolveCachedSkillInventory(source);
+            const result = searchSkills(inventory, query);
+            return result.matches.map((match) => ({
+              id: match.id,
+              name: match.name,
+              description: match.description,
+            }));
+          },
+        },
+      })
+    : [];
   const surfaceTools =
     input.surface === 'tui' ? [buildAskUserQuestionTool(), buildRequestSandboxBoundaryTool()] : [];
   // Connect configured MCP servers (mcp.json) before assembling the tool
