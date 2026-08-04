@@ -1435,10 +1435,12 @@ export {
   assertProductBindingCatalogClean,
   buildDeferredToolGroupsFromCatalog,
   buildHostCapabilitiesFromBinding,
+  buildMcpDeferredToolGroups,
   projectEffectiveProductToolSurface,
 } from './tool-catalog-derive.js';
 export type {
   EffectiveProductToolSurface,
+  McpServerToolGroup,
   NormalizedProductToolSurfacePolicy,
   ProductToolSurfaceIdentity,
   ProductToolSurfacePolicy,
@@ -1629,11 +1631,19 @@ export {
   buildSkillsPromptFragment,
   buildSkillsPromptFragmentFromInventoryWithReport,
   buildSkillsPromptFragmentWithReport,
+  resolveCachedSkillInventory,
+  refreshCachedSkillScan,
   selectSkillsForContext,
   selectSkillScanForContext,
   searchSkills,
   loadSkillInstructions,
   gateSkillsByHostCapabilities,
+  // skills-relevance (just-in-time surfacing)
+  selectRelevantSkills,
+  renderRelevantSkillsBlock,
+  SkillSurfaceTracker,
+  SKILL_SURFACE_MAX,
+  SKILL_SURFACE_MIN_SCORE,
   // skills-agent-tools
   buildSkillAgentTool,
   buildSkillAgentToolFromInventory,
@@ -1652,6 +1662,14 @@ export {
   writeContainedRegularTextFile,
   isRecord,
 } from './path-containment.js';
+export {
+  buildMcpRegisterTool,
+  buildMcpCallTool,
+  buildMcpListServersTool,
+} from './mcp-self-serve.js';
+export type {
+  McpSelfServeDeps,
+} from './mcp-self-serve.js';
 export {
   listInvocableSkills,
   resolveSkillInvocations,

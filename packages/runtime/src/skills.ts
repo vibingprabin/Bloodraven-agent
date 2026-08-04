@@ -133,6 +133,8 @@ export {
   buildSkillsPromptFragment,
   buildSkillsPromptFragmentFromInventoryWithReport,
   buildSkillsPromptFragmentWithReport,
+  resolveCachedSkillInventory,
+  refreshCachedSkillScan,
   loadSkillInstructions,
   loadSkillInstructionsFromScan,
   searchSkills,
@@ -173,6 +175,21 @@ export type {
   SkillInventoryResolver,
   SkillToolOptions,
 } from './skills-agent-tools.js';
+
+// ── From skills-relevance (just-in-time surfacing) ─────────────────────────
+export {
+  selectRelevantSkills,
+  renderRelevantSkillsBlock,
+  SkillSurfaceTracker,
+  SKILL_SURFACE_MAX,
+  SKILL_SURFACE_MIN_SCORE,
+  SKILL_SURFACE_SUPPRESS_AFTER_UNUSED,
+} from './skills-relevance.js';
+export type {
+  RelevantSkillMatch,
+  RelevantSkillsSelection,
+  SelectRelevantSkillsOptions,
+} from './skills-relevance.js';
 
 // ── From skills-starter ───────────────────────────────────────────────────
 export { buildStarterSkillTemplate } from './skills-starter.js';

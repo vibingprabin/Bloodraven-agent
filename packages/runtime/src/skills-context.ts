@@ -352,14 +352,63 @@ export function selectSkillScanForContext(
 
 // ── Public API: prompt fragment ───────────────────────────────────────────
 
+// Scanning thousands of SKILL.md files from disk (user + workspace skill
+// roots) is the dominant per-turn startup cost. The scan feeds the always-on
+// skill catalog fragment, which is rebuilt on every model turn even though the
+// skill set on disk barely changes. Cache the raw scan result behind a short
+// TTL so consecutive turns skip the re-scan; the catalog still re-renders per
+// turn (fresh budget + host gate), only the expensive disk read is reused.
+// Invalidated implicitly by the TTL; a caller that knows the on-disk set
+// changed can force a refresh through the diagnostic scan API directly.
+let cachedSkillScan: { key: string; at: number; result: SkillScanResult } | undefined;
+const SKILL_SCAN_CACHE_TTL_MS = 60_000;
+
 export async function buildSkillsPromptFragmentWithReport(
   source: SkillSource,
   host?: HostCapabilities,
   budgetOptions?: SkillCatalogBudgetOptions,
 ): Promise<SkillsPromptFragmentResult> {
-  const scan = await scanSkillsWithDiagnostics(source);
+  const scan = await cachedOrScanned(source);
   const selection = selectSkillScanForContext(scan, host, budgetOptions);
   return renderSkillsPromptSelection(selection);
+}
+
+async function cachedOrScanned(source: SkillSource): Promise<SkillScanResult> {
+  const key = cacheKeyForSkillSource(source);
+  const now = Date.now();
+  if (cachedSkillScan && cachedSkillScan.key === key && now - cachedSkillScan.at < SKILL_SCAN_CACHE_TTL_MS) {
+    return cachedSkillScan.result;
+  }
+  const result = await scanSkillsWithDiagnostics(source);
+  cachedSkillScan = { key, at: now, result };
+  return result;
+}
+
+/**
+ * Cached inventory access shared by every per-turn skill consumer. Both the
+ * static system-prompt catalog and the JIT relevance tail scan the same skill
+ * roots; a shared TTL cache turns two full disk scans per turn into one, then
+ * zero for the turn after. Callers that need an authoritative re-scan (e.g.
+ * after installing a skill mid-session) can await {@link refreshCachedSkillScan}.
+ */
+export async function resolveCachedSkillInventory(
+  source: SkillSource,
+): Promise<readonly ScannedSkill[]> {
+  return (await cachedOrScanned(source)).inventory;
+}
+
+/** Force the shared skill-scan cache to re-read the skill roots on next access. */
+export function refreshCachedSkillScan(): void {
+  cachedSkillScan = undefined;
+}
+
+function cacheKeyForSkillSource(source: SkillSource): string {
+  if (typeof source === 'string') return `dir:${source}`;
+  if (Array.isArray(source)) return `dirs:${source.join('|')}`;
+  const asRecord = source as { dirs?: unknown; dir?: unknown };
+  if (Array.isArray(asRecord.dirs)) return `dirs:${(asRecord.dirs as string[]).join('|')}`;
+  if (typeof asRecord.dir === 'string') return `dir:${asRecord.dir}`;
+  return 'source';
 }
 
 /** Render an already-authoritative inventory without rescanning its backing files. */

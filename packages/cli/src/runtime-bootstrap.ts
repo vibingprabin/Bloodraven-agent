@@ -32,6 +32,7 @@ import {
   buildSkillAgentTool,
   buildSkillSearchAgentTool,
   SkillShadowSelectionTracker,
+  SkillSurfaceTracker,
   buildGoalTools,
   buildParentAgentTools,
   assertProductBindingCatalogClean,
@@ -47,6 +48,7 @@ import {
   replayPlanItemsToModelMessages,
   recoverAgentGraphSupervisorContextOverflow,
   resolveSkillDiscoveryPaths,
+  resolveCachedSkillInventory,
   resolveSelectedModelContextWindow,
   projectEffectiveProductToolSurface,
   type AutomationDefinition,
@@ -75,6 +77,7 @@ import {
   isSessionNotFoundError,
   createSettingsStore,
   createSqliteShellRunStore,
+  createMcpConfigStore,
   assertSessionBundleRootLayout,
   type ForeignSessionStore,
   persistProviderRequestCaptureArtifact,
@@ -82,7 +85,14 @@ import {
 import { createAgentGraphControlStore } from '@maka/storage/agent-graph-control-store';
 import { resolveStorageRoot } from '@maka/storage/root-authority';
 import { resolveWorkspaceIdentity } from '@maka/storage/workspace-identity';
-import { fetchProviderModels } from '@maka/runtime';
+import { fetchProviderModels, buildMcpTools, mcpProxyToolName, type McpServerToolGroup } from '@maka/runtime';
+import {
+  buildMcpRegisterTool,
+  buildMcpCallTool,
+  buildMcpListServersTool,
+  type McpSelfServeDeps,
+} from '@maka/runtime';
+import { McpClientManager } from '@maka/mcp';
 import { createApiKeyOnboardingSurface, type MakaOnboardingSurface } from './onboarding.js';
 import { isActiveShellRunStatus, resolveModelVisionSupport } from '@maka/core';
 import type { ModelChoice, ReadySessionTarget } from './connection-target.js';
@@ -256,6 +266,50 @@ export async function createMakaCliRuntimeContext(
   const connectionStore = createConnectionStore(configRoot);
   const credentialStore = createFileCredentialStore(configRoot);
   const settingsStore = createSettingsStore(configRoot);
+  const mcpConfigStore = createMcpConfigStore(configRoot);
+  const mcpManager = new McpClientManager({ clientName: 'maka-cli' });
+  const mcpServerGroups = (): McpServerToolGroup[] =>
+    mcpManager
+      .statuses()
+      .filter((status) => status.state === 'connected')
+      .map((status) => ({
+        serverId: status.serverId,
+        toolNames: status.tools.map((descriptor) =>
+          mcpProxyToolName(descriptor.serverId, descriptor.name),
+        ),
+      }));
+  let mcpStartup: Promise<void> | undefined;
+  const ensureMcpReady = (): Promise<void> => {
+    if (!mcpStartup) {
+      const startup = mcpConfigStore.get().then((config) => mcpManager.sync(config));
+      mcpStartup = startup;
+      void startup.catch(() => {
+        if (mcpStartup === startup) mcpStartup = undefined;
+      });
+    }
+    return mcpStartup;
+  };
+  const mcpSelfServeDeps: McpSelfServeDeps = {
+    getConfig: async () => (await mcpConfigStore.get()).mcpServers,
+    upsertServer: async (serverId, config) => {
+      await mcpConfigStore.upsert(serverId, config);
+    },
+    sync: async () => {
+      const config = await mcpConfigStore.get();
+      await mcpManager.sync(config);
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+    },
+    listTools: () =>
+      mcpManager
+        .statuses()
+        .filter((status) => status.state === 'connected')
+        .map((status) => ({
+          serverId: status.serverId,
+          tools: status.tools.map((t) => ({ name: t.name, description: t.description })),
+        })),
+    callTool: async (serverId, toolName, args) =>
+      (await mcpManager.callTool(serverId, toolName, args)) as { content: unknown[] },
+  };
   const subagentCatalog = createConfiguredSubagentCatalog({
     getSettings: () => settingsStore.get(),
     getConnection: (slug) => connectionStore.get(slug),
@@ -597,14 +651,23 @@ export async function createMakaCliRuntimeContext(
   const subagentTools = agentGraphEnabled ? buildParentAgentTools() : [];
   const surfaceTools =
     input.surface === 'tui' ? [buildAskUserQuestionTool(), buildRequestSandboxBoundaryTool()] : [];
+  // Connect configured MCP servers (mcp.json) before assembling the tool
+  // surface so their tools are discoverable and deferrable like any builtin.
+  await ensureMcpReady();
   let cliProductToolSurface: EffectiveProductToolSurface;
   const resolveCliSkillHost: HostCapabilitiesResolver = () =>
     cliProductToolSurface.hostCapabilities;
   const skillShadowTracker = new SkillShadowSelectionTracker();
+  const skillSurfaceTracker = new SkillSurfaceTracker();
+  // Refs rendered in the static catalog this session; JIT surfacing never re-shows them.
+  let advertisedSkillRefs = new Set<string>();
   const skillTool = buildSkillAgentTool(
     ({ cwd }) => resolveSkillDiscoveryPaths(cwd, configRoot),
     resolveCliSkillHost,
-    { shadowTracker: skillShadowTracker },
+    {
+      shadowTracker: skillShadowTracker,
+      onInvoke: ({ sessionId, ref }) => skillSurfaceTracker.recordInvocation(sessionId, ref),
+    },
   );
   const skillSearchTool = buildSkillSearchAgentTool(
     ({ cwd }) => resolveSkillDiscoveryPaths(cwd, configRoot),
@@ -617,6 +680,10 @@ export async function createMakaCliRuntimeContext(
     ...goalTools,
     skillTool,
     skillSearchTool,
+    ...buildMcpTools(mcpManager),
+    buildMcpRegisterTool(mcpSelfServeDeps),
+    buildMcpCallTool(mcpSelfServeDeps),
+    buildMcpListServersTool(mcpSelfServeDeps),
     ...subagentTools,
     ...surfaceTools,
   ];
@@ -630,6 +697,7 @@ export async function createMakaCliRuntimeContext(
     policy: {
       economy: input.surface === 'tui' && !process.env.MAKA_DISABLE_DEFERRED_TOOLS,
     },
+    mcpServers: mcpServerGroups(),
   });
   const allTools = [...cliProductToolSurface.tools];
 
@@ -673,6 +741,7 @@ export async function createMakaCliRuntimeContext(
       host: 'cli',
       tools: ctx.tools ? ctx.tools : [...allTools, ...agentGraphSupervisorTools],
       policy: cliProductToolSurface.identity.policy,
+      mcpServers: mcpServerGroups(),
     });
     const backendTools = [...productToolSurface.tools];
     const admitsAgentChildren = productToolSurface.boundSurfaceIds.includes(AGENT_TOOL_GROUP_ID);
@@ -767,7 +836,12 @@ export async function createMakaCliRuntimeContext(
             workspaceRoot: configRoot,
             host: productToolSurface.hostCapabilities,
             modelContextWindow: resolveSelectedModelContextWindow(ready.connection, ready.model),
-            onSkillSelection: (report) =>
+            onSkillSelection: (report) => {
+              advertisedSkillRefs = new Set(
+                report.decisions
+                  .filter((decision) => decision.reason === 'advertised')
+                  .map((decision) => decision.ref),
+              );
               emitSkillCatalogTrace?.('Skill catalog selection completed', {
                 policyVersion: report.policyVersion,
                 budgetChars: report.budgetChars,
@@ -776,11 +850,25 @@ export async function createMakaCliRuntimeContext(
                 eligibleCount: report.eligibleCount,
                 advertisedCount: report.advertisedCount,
                 omittedCount: report.omittedCount,
-              }),
+              });
+            },
           });
         }),
-      turnTailPrompt: ({ cwd }) =>
-        buildCliTurnTailPrompt({ cwd, sessionId: ctx.sessionId, automationManager, goalManager }),
+      turnTailPrompt: ({ cwd, currentUserText }) =>
+        buildCliTurnTailPrompt({
+          cwd,
+          sessionId: ctx.sessionId,
+          currentUserText,
+          automationManager,
+          goalManager,
+          advertisedSkillRefs,
+          surfaceTracker: skillSurfaceTracker,
+          host: productToolSurface.hostCapabilities,
+          resolveInventory: async () => {
+            const source = resolveSkillDiscoveryPaths(cwd, configRoot);
+            return resolveCachedSkillInventory(source);
+          },
+        }),
       shellRunContextSummary: ctx.shellRunContextSummary,
       recordRunTrace: ctx.recordRunTrace,
       ...(ctx.recordProviderRequestCapture
