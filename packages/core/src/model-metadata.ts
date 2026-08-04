@@ -494,6 +494,12 @@ const STATIC_MODEL_METADATA: Partial<Record<ProviderType, Record<string, ModelMe
   deepseek: {
     'deepseek-v4-flash': { thinkingOptions: { efforts: ['high', 'max'], toggle: true } },
   },
+  // opencode-go serves the same DeepSeek V4 family over its OpenAI-compatible
+  // chat endpoint; the reasoning-effort wire mirrors the native deepseek plan.
+  'opencode-go': {
+    'deepseek-v4-flash': { thinkingOptions: { efforts: ['high', 'max'], toggle: true } },
+    'deepseek-v4-pro': { thinkingOptions: { efforts: ['high', 'max'], toggle: true } },
+  },
   'zai-coding-plan': {
     'glm-5.2': { thinkingOptions: { efforts: ['high', 'max'] } },
     'glm-5.1': { thinkingOptions: { toggle: true } },

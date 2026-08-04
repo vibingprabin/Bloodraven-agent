@@ -464,6 +464,7 @@ export function buildProviderOptions(
     case 'groq':
     case 'deepseek':
     case 'moonshot':
+    case 'opencode-go':
     case 'tencent-token-plan':
     case 'zai-coding-plan':
     case 'stepfun-step-plan':
@@ -483,6 +484,8 @@ function openaiCompatibleNamespace(providerType: ProviderType): string {
       return 'deepseek';
     case 'moonshot':
       return 'moonshot';
+    case 'opencode-go':
+      return 'opencode-go';
     case 'zai-coding-plan':
       return 'zai-coding-plan';
     case 'ollama':

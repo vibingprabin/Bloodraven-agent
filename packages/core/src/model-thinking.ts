@@ -6,7 +6,7 @@
  * `thinkingVariantsForModel`), and switching models clears the choice so a
  * level is never sent to a model that does not understand it. `undefined`
  * means "no override" (the model's default behaviour) and is the only value
- * persisted-absent — the UI shows it as "默认". `'off'` explicitly disables
+ * persisted-absent — the UI shows it as "default". `'off'` explicitly disables
  * reasoning for providers that expose a true off switch (`reasoningEffort:
  * 'none'` for OpenAI gpt-5 / codex, `thinking: { type: 'disabled' }` for
  * Anthropic-protocol); providers without a clean off switch do not list it.

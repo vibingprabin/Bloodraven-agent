@@ -33,6 +33,14 @@ test('model options preserve declared effort and off-wire facts', () => {
     efforts: ['high', 'max'],
     toggle: true,
   });
+  assert.deepEqual(thinkingOptionsForModel('opencode-go', 'deepseek-v4-flash'), {
+    efforts: ['high', 'max'],
+    toggle: true,
+  });
+  assert.deepEqual(thinkingOptionsForModel('opencode-go', 'deepseek-v4-pro'), {
+    efforts: ['high', 'max'],
+    toggle: true,
+  });
   assert.equal(thinkingOptionsForModel('openai', 'unknown-model'), undefined);
 });
 
@@ -42,6 +50,8 @@ test("model variants expose each provider model's declared choices", () => {
     ['anthropic', 'claude-opus-4-8', ['low', 'medium', 'high', 'xhigh', 'max']],
     ['google', 'gemini-2.5-flash', ['off']],
     ['deepseek', 'deepseek-v4-flash', ['high', 'max']],
+    ['opencode-go', 'deepseek-v4-flash', ['high', 'max']],
+    ['opencode-go', 'deepseek-v4-pro', ['high', 'max']],
     ['cohere', 'command-a-plus-05-2026', ['off']],
     ['ollama', 'llama3', []],
   ] as const) {

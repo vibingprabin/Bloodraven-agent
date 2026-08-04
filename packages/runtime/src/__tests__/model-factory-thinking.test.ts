@@ -205,6 +205,20 @@ describe('buildProviderOptions: thinking level', () => {
       deepseek: { reasoningEffort: 'max' },
     });
     assert.deepEqual(buildProviderOptions(conn('deepseek'), 'deepseek-v4-flash', 'off'), {});
+    // opencode-go serves the same DeepSeek V4 family over the OpenAI-compatible
+    // chat endpoint under its own provider namespace.
+    assert.deepEqual(
+      [...thinkingVariantsForModel('opencode-go', 'deepseek-v4-flash')],
+      ['high', 'max'],
+    );
+    assert.deepEqual(buildProviderOptions(conn('opencode-go'), 'deepseek-v4-flash', 'high'), {
+      'opencode-go': { reasoningEffort: 'high' },
+    });
+    assert.deepEqual(buildProviderOptions(conn('opencode-go'), 'deepseek-v4-flash', 'max'), {
+      'opencode-go': { reasoningEffort: 'max' },
+    });
+    assert.deepEqual(buildProviderOptions(conn('opencode-go'), 'deepseek-v4-flash', 'off'), {});
+    assert.deepEqual(buildProviderOptions(conn('opencode-go'), 'deepseek-chat', 'high'), {});
     assert.deepEqual([...thinkingVariantsForModel('zai-coding-plan', 'glm-5.1')], []);
     assert.deepEqual([...thinkingVariantsForModel('zai-coding-plan', 'glm-4.5-air')], []);
     // miss model (deepseek-chat non-reasoning) drops level
@@ -509,6 +523,8 @@ describe('buildProviderOptions: resolver/options drift guard', () => {
     { providerType: 'google', model: 'gemini-3-pro-preview' },
     { providerType: 'google', model: 'gemini-3.5-flash' },
     { providerType: 'deepseek', model: 'deepseek-v4-flash' },
+    { providerType: 'opencode-go', model: 'deepseek-v4-flash' },
+    { providerType: 'opencode-go', model: 'deepseek-v4-pro' },
     { providerType: 'xai', model: 'grok-4.5' },
     { providerType: 'deepinfra', model: 'moonshotai/Kimi-K2.7-Code' },
     { providerType: 'groq', model: 'openai/gpt-oss-120b' },
