@@ -8,6 +8,7 @@
   "types": "./dist/index.d.ts",
   "bin": {
     "bloodraven": "./dist/cli.js",
+    "brvn": "./dist/cli.js",
     "maka": "./dist/cli.js",
     "maka-agent": "./dist/cli.js"
   },

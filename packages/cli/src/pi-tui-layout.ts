@@ -27,7 +27,7 @@ export class MakaTranscriptComponent implements Component {
   }
 }
 
-/** The opencode-style top brand bar (Bloodraven wordmark in accent). */
+/** The opencode-style top bar, pinned above the transcript (no branding). */
 export class MakaBrandBarComponent implements Component {
   constructor(private readonly metadata: () => MakaPiTranscriptMetadata) {}
 

@@ -2129,7 +2129,7 @@ describe('Maka Pi TUI runner', () => {
       'the head should have scrolled off',
     );
     assert.equal(
-      screen[terminal.rows - 2]?.includes('bloodraven · Maka · DeepSeek V4 Flash · deepseek · Auto'),
+      screen[terminal.rows - 2]?.includes('Maka · DeepSeek V4 Flash · deepseek · Auto'),
       true,
     );
 
@@ -3347,7 +3347,7 @@ describe('Maka Pi TUI runner', () => {
     assert.deepEqual(driver.modelConnections, ['zai']);
     // The status line now reflects both the new model and the new connection.
     await waitFor(() =>
-      plainTerminalOutput(terminal.output()).includes('bloodraven · Maka · GLM 5.2 · zai · Auto'),
+      plainTerminalOutput(terminal.output()).includes('Maka · GLM 5.2 · zai · Auto'),
     );
 
     exitMaka(terminal);
@@ -3407,7 +3407,7 @@ describe('Maka Pi TUI runner', () => {
     assert.deepEqual(driver.models, ['glm-5.2']);
     assert.deepEqual(driver.modelConnections, ['zai']);
     await waitFor(() =>
-      plainTerminalOutput(terminal.output()).includes('bloodraven · Maka · GLM 5.2 · zai · Auto'),
+      plainTerminalOutput(terminal.output()).includes('Maka · GLM 5.2 · zai · Auto'),
     );
 
     exitMaka(terminal);
@@ -3461,7 +3461,7 @@ describe('Maka Pi TUI runner', () => {
     assert.deepEqual(driver.models, []);
     assert.deepEqual(driver.modelConnections, []);
     assert.ok(
-      plainTerminalOutput(terminal.output()).includes('bloodraven · Maka · GPT 5.5 · openai · Auto'),
+      plainTerminalOutput(terminal.output()).includes('Maka · GPT 5.5 · openai · Auto'),
     );
 
     exitMaka(terminal);
@@ -5363,7 +5363,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() =>
       plainTerminalOutput(terminal.output()).includes(
-        'bloodraven · Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
+        'Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
       ),
     );
 
@@ -5404,7 +5404,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() =>
       plainTerminalOutput(terminal.output()).includes(
-        'bloodraven · Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
+        'Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
       ),
     );
 
@@ -5443,7 +5443,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() =>
       plainTerminalOutput(terminal.output()).includes(
-        'bloodraven · Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
+        'Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
       ),
     );
 

@@ -1353,7 +1353,7 @@ export function renderMakaPiStatusLine(
 }
 
 function renderStatusIdentityRow(metadata: MakaPiTranscriptMetadata, width: number): string {
-  const left: string[] = [ansi.accent('bloodraven')];
+  const left: string[] = [];
   // The brand bar carries the wordmark, so the session title is dim like the
   // rest of the usage bar rather than bold (opencode-style restraint), and it
   // is omitted entirely when it matches the default app name.
@@ -1454,19 +1454,17 @@ function packStatusRow(
 }
 
 /**
- * opencode-style top brand bar: the Bloodraven wordmark in accent, then the
- * session context in dim, pinned above the transcript. The wordmark is the
- * single constant element; a custom session name (set via /rename, surfaced
- * through metadata.title) follows it, while the default title is the app name
- * itself and adds nothing.
+ * opencode-style top bar, pinned above the transcript. It shows the session
+ * name (set via /rename) in dim; the default title is the app name itself and
+ * adds nothing, so on a fresh session the row stays clean and un-branded.
  */
 export function renderMakaPiBrandBar(
   metadata: MakaPiTranscriptMetadata,
   width: number,
 ): string {
   const safeWidth = Math.max(1, width);
-  const parts: string[] = [ansi.accent('bloodraven')];
   const title = metadata.title;
+  const parts: string[] = [];
   if (title && title.toLowerCase() !== 'bloodraven') {
     parts.push(ansi.dim(title));
   }
@@ -1823,12 +1821,10 @@ function renderNotice(entry: MakaPiNoticeEntry, width: number): string[] {
 }
 
 function renderWelcomeBlock(width: number): string[] {
-  // The branded home greets with the Bloodraven wordmark in the eye-red accent,
-  // a short tagline, and the command-center entry points (direct input, /session,
-  // /model, /setup) so a fresh session shows the main actions without typing `/`.
-  // The active model and connection live in the statusline, so the welcome does
-  // not repeat them. A terminal too narrow for the wordmark falls back to a
-  // short brand line.
+  // Clean empty-state home: no branding, just the command-center entry points
+  // (direct input, /session, /model, /setup) so a fresh session shows the main
+  // actions without typing `/`. The active model and connection live in the
+  // statusline, so the welcome does not repeat them.
   const hints: [string, string][] = [
     ['/session', 'switch or resume session'],
     ['/model', 'switch model'],
@@ -1836,9 +1832,6 @@ function renderWelcomeBlock(width: number): string[] {
   ];
   const keyWidth = Math.max(...hints.map(([key]) => key.length));
   const lines: string[] = [];
-  const wordmark = 'Bloodraven';
-  lines.push(fitLine(ansi.accent(ansi.bold(wordmark)), width));
-  lines.push('');
   lines.push(fitLine(ansi.dim('get things done with you'), width));
   lines.push('');
   lines.push(fitLine('  type a message to start the conversation', width));

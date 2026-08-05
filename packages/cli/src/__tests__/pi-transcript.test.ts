@@ -33,15 +33,14 @@ import {
 before(() => _setColorLevelForTesting(3));
 
 describe('Maka Pi TUI transcript', () => {
-  test('greets on a fresh empty session with the branded bloodraven home and drops it once a prompt lands', () => {
+  test('greets on a fresh empty session with a clean un-branded home and drops it once a prompt lands', () => {
     const state = createMakaPiTranscriptState();
 
     const lines = renderMakaPiTranscript(state, meta(), 100).map((line) =>
       stripAnsi(line).replace(/\s+$/, ''),
     );
-    // The wordmark is the eye-red accent and bold, and spells Bloodraven.
-    assert.ok(lines.some((line) => line.trim() === 'Bloodraven'));
-    assert.ok(renderMakaPiTranscript(state, meta(), 100).some((line) => line.includes('\x1b[38;2;197;40;33m')));
+    // No branding anywhere on the empty state.
+    assert.equal(lines.some((line) => /bloodraven|maka/i.test(line)), false);
     // Short tagline.
     assert.ok(lines.includes('get things done with you'));
     // Command-center hints: direct input + /session + /model + /setup. /help is
@@ -4645,16 +4644,16 @@ describe('Maka Pi TUI status line', () => {
     // named — showing it as Auto is the #1611 defect.
     for (const permissionMode of ['ask', 'execute']) {
       const line = stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode }, 100)[0]!);
-      assert.match(line, /bloodraven · Maka · DeepSeek V4 Flash · deepseek · Auto$/);
+      assert.match(line, /Maka · DeepSeek V4 Flash · deepseek · Auto$/);
       assert.doesNotMatch(line, new RegExp(`· ${permissionMode} ·`));
     }
     assert.match(
       stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode: 'explore' }, 100)[0]!),
-      /bloodraven · Maka · DeepSeek V4 Flash · deepseek · Read only$/,
+      /Maka · DeepSeek V4 Flash · deepseek · Read only$/,
     );
     assert.match(
       stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode: 'bypass' }, 100)[0]!),
-      /bloodraven · Maka · DeepSeek V4 Flash · deepseek · Full access$/,
+      /Maka · DeepSeek V4 Flash · deepseek · Full access$/,
     );
   });
 
