@@ -19,6 +19,10 @@ import {
   submitCompactToTranscript,
   toggleAllThinkingExpansion,
   toggleAllToolExpansion,
+  moveTranscriptSelection,
+  selectedTranscriptEntry,
+  setTranscriptSelection,
+  toggleSelectedEntryExpansion,
 } from '../pi-transcript.js';
 
 // Pin the color level so ANSI-escape assertions are hermetic. Detection reads
@@ -894,6 +898,74 @@ describe('Maka Pi TUI transcript', () => {
 
     const after = renderMakaPiTranscript(state, meta(), 100);
     assert.deepEqual(after.slice(0, viewportTop), before.slice(0, viewportTop));
+  });
+
+  test('message selection highlights the selected entry without changing width or line count', () => {
+    const state = createMakaPiTranscriptState();
+    appendUserPrompt(state, 'alpha-prompt');
+    applyMakaSessionEventToTranscript(
+      state,
+      event({
+        type: 'thinking_delta',
+        messageId: 'message-1',
+        text: 'a reasoning line',
+      }),
+    );
+
+    assert.equal(setTranscriptSelection(state, true), true);
+    assert.equal(state.selectionActive, true);
+    const selectedIndex = state.selectedEntryIndex;
+    assert.ok(selectedIndex >= 0);
+
+    const lines = renderMakaPiTranscript(state, meta(), 100);
+    assert.equal(lines.length, renderMakaPiTranscript(state, meta(), 100).length);
+    for (const line of lines) assert.ok(visibleWidth(line) <= 100);
+    // The selection accent-wraps the selected entry's first rendered line; the
+    // user prompt is that entry here, so its first rendered line carries the
+    // escape wrap (color-only, no text change).
+    const renderedText = stripAnsi(lines.join('\n'));
+    assert.match(renderedText, /alpha-prompt/);
+    const selectedEntry = selectedTranscriptEntry(state);
+    assert.ok(selectedEntry && selectedEntry.kind === 'user');
+    const firstLine = state.renderGeometry.entryFirstLine?.get(selectedEntry);
+    assert.ok(firstLine !== undefined);
+    assert.match(lines[firstLine] ?? '', /\x1b\[/);
+
+    assert.equal(setTranscriptSelection(state, false), true);
+    assert.equal(state.selectionActive, false);
+    assert.equal(state.selectedEntryIndex, -1);
+    assert.equal(selectedTranscriptEntry(state), undefined);
+  });
+
+  test('selection moves only among non-notice entries and toggles expandable cards', () => {
+    const state = createMakaPiTranscriptState();
+    appendUserPrompt(state, 'user-a');
+    applyMakaSessionEventToTranscript(
+      state,
+      event({
+        type: 'thinking_delta',
+        messageId: 'message-1',
+        text: 'a reasoning line',
+      }),
+    );
+    state.entries.push({ kind: 'notice', level: 'info', text: 'a notice' });
+
+    assert.equal(setTranscriptSelection(state, true), true);
+    const firstIndex = state.selectedEntryIndex;
+    const firstEntry = state.entries[firstIndex];
+    assert.ok(firstEntry && firstEntry.kind === 'user');
+
+    assert.equal(moveTranscriptSelection(state, 1), true);
+    const secondEntry = selectedTranscriptEntry(state);
+    assert.ok(secondEntry && secondEntry.kind === 'thinking');
+    assert.equal(secondEntry.expanded, false);
+    assert.equal(toggleSelectedEntryExpansion(state), true);
+    assert.equal(secondEntry.expanded, true);
+
+    // The trailing notice is not a valid selection target, so moving past the
+    // thinking entry hits the boundary.
+    assert.equal(moveTranscriptSelection(state, 1), false);
+    assert.equal(moveTranscriptSelection(state, -1), true);
   });
 
   test('replays WriteStdin as a human-readable operation row while merging its PTY revision into Bash', () => {

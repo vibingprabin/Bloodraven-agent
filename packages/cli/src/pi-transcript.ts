@@ -63,6 +63,15 @@ export interface MakaPiTranscriptState {
   expandAllTools: boolean;
   expandAllThinking: boolean;
   /**
+   * Keyboard message selection (runner binds Alt+E). The selected entry's first
+   * rendered line is accent-highlighted in the render loop — color only, zero
+   * width and zero line-count delta — so the highlight is safe under the same
+   * immutable-scrollback constraint as the expansion toggles (#1097/#1135).
+   * -1 = nothing selected. In-memory only; never persisted.
+   */
+  selectionActive: boolean;
+  selectedEntryIndex: number;
+  /**
    * Geometry of the transcript render pi-tui last diffed against:
    * renderMakaPiTranscript records each entry's first line and
    * MakaPiLayoutComponent records the live-viewport top. The expansion toggles
@@ -196,6 +205,8 @@ export function createMakaPiTranscriptState(): MakaPiTranscriptState {
     expandAllTools: false,
     expandAllThinking: false,
     renderGeometry: { entryFirstLine: undefined, viewportTop: 0 },
+    selectionActive: false,
+    selectedEntryIndex: -1,
     pendingShellRunPolls: new Map(),
     usage: { costUsd: 0, cacheHitInput: 0, cacheMissInput: 0 },
     steering: [],
@@ -422,6 +433,80 @@ export function toggleAllThinkingExpansion(state: MakaPiTranscriptState): boolea
       text: `No thinking in view to toggle — thinking above stays as rendered in scrollback. New thinking starts ${state.expandAllThinking ? 'expanded' : 'collapsed'}.`,
     });
   }
+  return true;
+}
+
+function selectableTranscriptEntry(entry: MakaPiTranscriptEntry): boolean {
+  return entry.kind !== 'notice' && !(entry.kind === 'tool' && entry.hidden);
+}
+
+/**
+ * Nearest selectable entry index scanning from `from` in `step` direction,
+ * restricted to the live viewport (same contract as the expansion toggles:
+ * entries above it sit in immutable scrollback and must stay untouched).
+ */
+function nearestSelectableIndex(
+  state: MakaPiTranscriptState,
+  from: number,
+  step: 1 | -1,
+): number {
+  for (let i = from; i >= 0 && i < state.entries.length; i += step) {
+    const entry = state.entries[i]!;
+    if (!selectableTranscriptEntry(entry)) continue;
+    if (!entryInLiveViewport(state, entry)) continue;
+    return i;
+  }
+  return -1;
+}
+
+/** Enter or exit message-selection mode; with an explicit index, select it. */
+export function setTranscriptSelection(
+  state: MakaPiTranscriptState,
+  active: boolean,
+  index?: number,
+): boolean {
+  state.selectionActive = active;
+  if (!active) {
+    const changed = state.selectedEntryIndex !== -1;
+    state.selectedEntryIndex = -1;
+    return changed;
+  }
+  const target =
+    index !== undefined && index >= 0 && index < state.entries.length
+      ? index
+      : nearestSelectableIndex(state, 0, 1);
+  const changed = state.selectedEntryIndex !== target;
+  state.selectedEntryIndex = target;
+  return changed;
+}
+
+/** Move the selection to the next/previous selectable entry; false at the ends. */
+export function moveTranscriptSelection(
+  state: MakaPiTranscriptState,
+  delta: 1 | -1,
+): boolean {
+  if (!state.selectionActive || state.selectedEntryIndex < 0) return false;
+  const next = nearestSelectableIndex(state, state.selectedEntryIndex + delta, delta);
+  if (next < 0) return false;
+  state.selectedEntryIndex = next;
+  return true;
+}
+
+/** The currently selected entry, or undefined when selection is off/empty. */
+export function selectedTranscriptEntry(
+  state: MakaPiTranscriptState,
+): MakaPiTranscriptEntry | undefined {
+  return state.selectionActive && state.selectedEntryIndex >= 0
+    ? state.entries[state.selectedEntryIndex]
+    : undefined;
+}
+
+/** Enter expands/collapses the selected tool or thinking card; false otherwise. */
+export function toggleSelectedEntryExpansion(state: MakaPiTranscriptState): boolean {
+  const entry = selectedTranscriptEntry(state);
+  if (!entry || (entry.kind !== 'thinking' && entry.kind !== 'tool')) return false;
+  if (!entryInLiveViewport(state, entry)) return false;
+  entry.expanded = !entry.expanded;
   return true;
 }
 
@@ -1063,7 +1148,16 @@ export function renderMakaPiTranscript(
     const fullyOffScreen =
       lines.length < viewportTop &&
       (entryHeight === 0 || lines.length + entryHeight <= viewportTop);
-    lines.push(...renderTranscriptEntryMemoized(entry, safeWidth, fullyOffScreen));
+    const rendered = renderTranscriptEntryMemoized(entry, safeWidth, fullyOffScreen);
+    // Selection highlight: color-only wrap of the first line, applied after the
+    // cache read so no cached entry is mutated (the cache returns shared
+    // references). Copying the first line into a fresh string keeps the cached
+    // array untouched and preserves width/line-count invariants.
+    if (state.selectionActive && i === state.selectedEntryIndex && rendered.length > 0 && rendered[0] !== '') {
+      lines.push(ansi.accent(rendered[0]!), ...rendered.slice(1));
+    } else {
+      lines.push(...rendered);
+    }
   }
   state.renderGeometry.entryFirstLine = entryFirstLine;
 
@@ -1286,7 +1380,12 @@ function renderStatusMetricsRow(metadata: MakaPiTranscriptMetadata, width: numbe
     left.push(`${ansi.accent(frame)} ${ansi.dim('esc interrupt')}`);
     left.push(ansi.dim(`${Math.floor(metadata.turnElapsedMs / 1_000)}s`));
   } else {
-    left.push(ansi.dim('ctrl+o expand'), ansi.dim('ctrl+t thinking'), ansi.dim('/ commands'));
+    left.push(
+      ansi.dim('ctrl+o expand'),
+      ansi.dim('ctrl+t thinking'),
+      ansi.dim('alt+e select'),
+      ansi.dim('/ commands'),
+    );
   }
   const right: string[] = [];
   const usage = metadata.usage;
@@ -1686,13 +1785,25 @@ function pushShellRunSettledNotice(state: MakaPiTranscriptState, entry: MakaPiTo
   });
 }
 
-/** A user turn: a dim `>` quote prefix per line, no speaker label. */
+/**
+ * A user turn: a raised card with a red accent bar on the left and a panel
+ * surface backdrop, so your own prompt reads distinctly from the assistant's
+ * plain prose. The bar is `ansi.accent` (the legible eye red); the backdrop is
+ * `bgSurface` (#1d2023), a step lighter than the near-black page.
+ */
 function renderUserBlock(text: string, width: number): string[] {
   if (!text.trim()) return [];
-  const prefix = ansi.dim('>');
-  // renderIndented reserves a 2-column gutter; reuse it and swap the two
-  // leading spaces for `> ` so wrapped lines stay aligned under the prefix.
-  return renderIndented(text, width, 2).map((line) => fitLine(`${prefix} ${line.slice(2)}`, width));
+  const bar = ansi.accent('▎');
+  const safeWidth = Math.max(1, width);
+  // Reserve 2 columns for the accent bar + following space, then pad each line
+  // to the full row width so the panel backdrop spans the whole card.
+  const contentWidth = Math.max(1, safeWidth - 2);
+  const lines = renderIndented(text, contentWidth, 0).map((line) => fitLine(line, contentWidth));
+  return lines.map((line) => {
+    const visible = visibleWidth(line);
+    const pad = ' '.repeat(Math.max(0, contentWidth - visible));
+    return ansi.bgSurface(`${bar} ${line}${pad}`);
+  });
 }
 
 /** An assistant turn: bare markdown prose, no speaker label or indent. */

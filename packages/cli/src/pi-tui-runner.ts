@@ -75,6 +75,10 @@ import {
   submitCompactToTranscript,
   toggleAllThinkingExpansion,
   toggleAllToolExpansion,
+  moveTranscriptSelection,
+  selectedTranscriptEntry,
+  setTranscriptSelection,
+  toggleSelectedEntryExpansion,
   type MakaPiTranscriptMetadata,
 } from './pi-transcript.js';
 import {
@@ -1794,6 +1798,36 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     );
   };
 
+  // Copy the selected entry's text via OSC52 (Windows Terminal / most kitty-
+  // aware terminals honor it without a clipboard library). No spawning; a
+  // confirmation notice is appended so the action has visible feedback.
+  const copyTranscriptSelectionToClipboard = () => {
+    const entry = selectedTranscriptEntry(state);
+    if (!entry) return;
+    let text: string;
+    if (entry.kind === 'tool') {
+      const head = [entry.title].filter(Boolean).join(' · ');
+      let input = '';
+      try {
+        input = typeof entry.input === 'string' ? entry.input : (JSON.stringify(entry.input, null, 2) ?? '');
+      } catch {
+        input = String(entry.input);
+      }
+      text = [head, input].filter(Boolean).join('\n');
+    } else {
+      text = entry.text;
+    }
+    if (!text.trim()) return;
+    const payload = Buffer.from(text, 'utf8').toString('base64');
+    process.stdout.write(`\x1b]52;c;${payload}\x07`);
+    state.entries.push({
+      kind: 'notice',
+      level: 'info',
+      text: 'Copied message to clipboard.',
+    });
+    requestRender();
+  };
+
   const newSession = () => {
     input.driver.startNewSession();
     // A fresh session is not bound by the previous one's boundary; re-read the
@@ -2615,6 +2649,56 @@ export async function runMakaPiTui(input: MakaPiTuiInput): Promise<void> {
     if (matchesKey(data, Key.ctrl('p')) && !isKeyRepeat(data)) {
       if (toggleAllThinkingExpansion(state)) {
         requestRender();
+        return { consume: true };
+      }
+    }
+    // Alt+E toggles message-selection mode: ↑/↓ move between entries, Enter
+    // expands/collapses a tool or thinking card, C copies the entry's text,
+    // R opens the rewind picker, Esc exits. This block sits above the idle
+    // Escape handling and only arms while nothing is running, so plain keys
+    // keep reaching the editor when selection is off.
+    if (matchesKey(data, Key.alt('e')) && !isKeyRepeat(data) && !busy && !turnRunning) {
+      const nowActive = !state.selectionActive;
+      if (setTranscriptSelection(state, nowActive)) {
+        if (nowActive) {
+          state.entries.push({
+            kind: 'notice',
+            level: 'info',
+            text: 'Selection — ↑/↓ move · enter expand · c copy · r rewind · esc exit',
+          });
+        }
+        requestRender();
+      }
+      return { consume: true };
+    }
+    if (state.selectionActive && !busy && !turnRunning) {
+      if (matchesKey(data, Key.escape) && !isKeyRepeat(data)) {
+        setTranscriptSelection(state, false);
+        requestRender();
+        return { consume: true };
+      }
+      if (matchesKey(data, Key.up) && !isKeyRepeat(data)) {
+        if (moveTranscriptSelection(state, -1)) requestRender();
+        return { consume: true };
+      }
+      if (matchesKey(data, Key.down) && !isKeyRepeat(data)) {
+        if (moveTranscriptSelection(state, 1)) requestRender();
+        return { consume: true };
+      }
+      if (
+        (matchesKey(data, Key.enter) || matchesKey(data, Key.return)) &&
+        !isKeyRepeat(data)
+      ) {
+        if (toggleSelectedEntryExpansion(state)) requestRender();
+        return { consume: true };
+      }
+      if (matchesKey(data, 'c') && !isKeyRepeat(data)) {
+        copyTranscriptSelectionToClipboard();
+        return { consume: true };
+      }
+      if (matchesKey(data, 'r') && !isKeyRepeat(data)) {
+        setTranscriptSelection(state, false);
+        void runControl(showRewindPicker);
         return { consume: true };
       }
     }

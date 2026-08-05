@@ -116,6 +116,9 @@ function buildAnsi() {
     // #52585c raised border — quiet structural lines and editor chrome.
     border: colorLevel === 0 ? identity : colorFn(BLOODRAVEN_BORDER_HI_RGB, colorLevel),
     reverse: style(7, 27),
+    // #1d2023 panel surface — a distinct backdrop for the user-message box, so
+    // your own prompt reads as a raised card against the near-black transcript.
+    bgSurface: colorLevel === 0 ? identity : bgColorFn(BLOODRAVEN_SURFACE_RGB, colorLevel),
   };
 }
 
@@ -180,6 +183,18 @@ function colorFn(
   if (level === 3) return rgb24(...rgb);
   if (level === 2) return rgb256(...rgb);
   return rgb16(...rgb);
+}
+
+function bgColorFn(
+  rgb: readonly [number, number, number],
+  level: 1 | 2 | 3,
+): (text: string) => string {
+  if (level === 3) return (text) => `\x1b[48;2;${rgb[0]};${rgb[1]};${rgb[2]}m${text}\x1b[49m`;
+  if (level === 2) {
+    const index = nearest256(rgb[0], rgb[1], rgb[2]);
+    return (text) => `\x1b[48;5;${index}m${text}\x1b[49m`;
+  }
+  return (text) => `\x1b[40m${text}\x1b[49m`;
 }
 
 function rgb24(red: number, green: number, blue: number): (text: string) => string {
