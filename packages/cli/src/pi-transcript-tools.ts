@@ -13,6 +13,12 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import { ansi, disc } from './tui-ansi.js';
 import { colorDiff, diffLineKind } from './tui-diff.js';
 import {
+  editDiffTally,
+  renderEditDiff,
+  renderNewFileLines,
+  writeDiffTally,
+} from './pi-transcript-diff.js';
+import {
   collapseToSingleLine,
   fitLine,
   formatUnknownInline,
@@ -102,7 +108,10 @@ function compactAnnotation(entry: MakaPiToolEntry): { text: string; protect: boo
       protect = summary.protect === true;
     }
   }
-  return { text: parts.length > 0 ? `(${parts.join(' · ')})` : '', protect };
+  // Edit/Write rows hint at the expandable diff with a dim affordance, kept
+  // inside the annotation so it survives truncation alongside the tally.
+  const text = parts.length > 0 ? `(${parts.join(' · ')})` : '';
+  return { text: isDiffTool(entry) ? `${text}${ansi.dim(' · ctrl+o expand')}` : text, protect };
 }
 
 /**
@@ -144,8 +153,14 @@ function renderExpandedToolBlock(entry: MakaPiToolEntry, width: number): string[
   if (duration) header += ` (${duration})`;
   const lines = [fitLine(header, width)];
 
-  const inputSummary = toolInputSummary(entry);
-  if (inputSummary) lines.push(...renderIndented(inputSummary, width, 2).map(ansi.dim));
+  // Edit/Write cards render their own `← Edit path` header and diff body
+  // (side-by-side, or a single new-file column), which replaces both the input
+  // summary and the generic result rendering below.
+  const diffBlock = renderEditWriteBlock(entry, width);
+  if (!diffBlock) {
+    const inputSummary = toolInputSummary(entry);
+    if (inputSummary) lines.push(...renderIndented(inputSummary, width, 2).map(ansi.dim));
+  }
   if (entry.progress.droppedChars > 0) {
     lines.push(
       ...renderIndented(
@@ -168,7 +183,9 @@ function renderExpandedToolBlock(entry: MakaPiToolEntry, width: number): string[
     );
   }
   lines.push(...renderToolStreams(entry.outputDeltas.values(), width));
-  if (entry.result || entry.output) {
+  if (diffBlock) {
+    lines.push(...diffBlock);
+  } else if (entry.result || entry.output) {
     lines.push(...renderToolResult(entry, width));
   }
   if (
@@ -179,6 +196,81 @@ function renderExpandedToolBlock(entry: MakaPiToolEntry, width: number): string[
     lines.push(...renderIndented(ansi.dim('Ask Maka to stop this task'), width, 2));
   }
   return lines.map((line) => fitLine(line, width));
+}
+
+/**
+ * The Edit/Write expanded body: an accent `← Edit <path>` (or
+ * `← Write <path> (new file)`) header, the arg-based diff columns, and the
+ * JSON result summary (path/replacements/bytes) as a dim footer. Returns
+ * undefined when the args lack diff content or the columns cannot fit, so the
+ * caller falls back to the generic result rendering.
+ */
+function renderEditWriteBlock(entry: MakaPiToolEntry, width: number): string[] | undefined {
+  const args =
+    entry.input !== null && typeof entry.input === 'object'
+      ? (entry.input as Record<string, unknown>)
+      : undefined;
+  if (entry.toolName === 'Edit') {
+    const path = args?.path;
+    const oldContent = args?.old_string;
+    const newContent = args?.new_string;
+    if (
+      typeof path === 'string' &&
+      typeof oldContent === 'string' &&
+      typeof newContent === 'string'
+    ) {
+      const columns = renderEditDiff(oldContent, newContent, width);
+      if (columns) {
+        const lines = [fitLine(ansi.accent(`← Edit ${path}`), width)];
+        lines.push(...columns);
+        const footer = jsonResultFooter(entry);
+        if (footer) lines.push(...renderIndented(ansi.dim(footer), width, 2));
+        return lines;
+      }
+    }
+  }
+  if (entry.toolName === 'Write') {
+    const path = args?.path;
+    const content = args?.content;
+    if (typeof path === 'string' && typeof content === 'string') {
+      const columns = renderNewFileLines(content, width);
+      if (columns) {
+        const lines = [fitLine(ansi.accent(`← Write ${path} (new file)`), width)];
+        lines.push(...columns);
+        const footer = jsonResultFooter(entry);
+        if (footer) lines.push(...renderIndented(ansi.dim(footer), width, 2));
+        return lines;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** Compact one-line footer from a JSON result: `path · done · 34 B · 1 replacement`. */
+function jsonResultFooter(entry: MakaPiToolEntry): string | undefined {
+  const result = entry.result;
+  if (result?.kind !== 'json') return undefined;
+  const value = result.value;
+  if (value === null || typeof value !== 'object') return undefined;
+  const preview = formatQuietJsonValue(value, 'en');
+  const head = preview.headline;
+  const body = collapseToSingleLine(preview.body);
+  if (!head) return body || undefined;
+  return body ? `${head} · ${body}` : head;
+}
+
+/** Cards whose expanded body is a side-by-side diff (arg-based Edit/Write). */
+function isDiffTool(entry: MakaPiToolEntry): boolean {
+  return entry.toolName === 'Edit' || entry.toolName === 'Write';
+}
+
+function toolArgString(entry: MakaPiToolEntry, key: string): string | undefined {
+  const args =
+    entry.input !== null && typeof entry.input === 'object'
+      ? (entry.input as Record<string, unknown>)
+      : undefined;
+  const value = args?.[key];
+  return typeof value === 'string' ? value : undefined;
 }
 
 interface CompactToolSummary {
@@ -226,6 +318,24 @@ function pipeOutputLineCount(output: { stdout?: string; stderr?: string }): numb
 }
 
 function compactToolSummary(entry: MakaPiToolEntry): CompactToolSummary | undefined {
+  // Edit/Write collapse to a `+N −M` diff tally computed from the raw args —
+  // the same tally the expanded card's side-by-side diff shows. Falls back to
+  // the generic result handling when the args carry no diff content.
+  if (entry.toolName === 'Edit') {
+    const oldContent = toolArgString(entry, 'old_string');
+    const newContent = toolArgString(entry, 'new_string');
+    if (oldContent !== undefined || newContent !== undefined) {
+      const tally = editDiffTally(oldContent ?? '', newContent ?? '');
+      if (tally) return { text: tally, protect: true };
+    }
+  }
+  if (entry.toolName === 'Write') {
+    const content = toolArgString(entry, 'content');
+    if (content !== undefined) {
+      const tally = writeDiffTally(content);
+      if (tally) return { text: tally, protect: true };
+    }
+  }
   const result = entry.result;
   if (result?.kind === 'shell_run') {
     if (entry.toolName === 'WriteStdin') {

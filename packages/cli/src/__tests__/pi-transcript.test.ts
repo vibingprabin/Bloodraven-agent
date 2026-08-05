@@ -4584,17 +4584,17 @@ describe('Maka Pi TUI status line', () => {
     // Auto. `explore` is a boundary a resumed session can be in and must be
     // named — showing it as Auto is the #1611 defect.
     for (const permissionMode of ['ask', 'execute']) {
-      const line = stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode }, 100));
-      assert.match(line, /Maka · Auto ·/);
+      const line = stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode }, 100)[0]!);
+      assert.match(line, /bloodraven · Maka · DeepSeek V4 Flash · deepseek · Auto$/);
       assert.doesNotMatch(line, new RegExp(`· ${permissionMode} ·`));
     }
     assert.match(
-      stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode: 'explore' }, 100)),
-      /Maka · Read only ·/,
+      stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode: 'explore' }, 100)[0]!),
+      /bloodraven · Maka · DeepSeek V4 Flash · deepseek · Read only$/,
     );
     assert.match(
-      stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode: 'bypass' }, 100)),
-      /Maka · Full access ·/,
+      stripAnsi(renderMakaPiStatusLine({ ...meta(), permissionMode: 'bypass' }, 100)[0]!),
+      /bloodraven · Maka · DeepSeek V4 Flash · deepseek · Full access$/,
     );
   });
 
@@ -4606,7 +4606,7 @@ describe('Maka Pi TUI status line', () => {
         usage: { costUsd: 0, cacheHitInput: 0, cacheMissInput: 0, contextRemaining: 3_200 },
       },
       100,
-    );
+    ).join('\n');
     // 124800/128000 = 97.5% → red (\x1b[31m)
     assert.ok(raw.includes('\x1b[31m'), 'ctx segment should use red at >95%');
   });

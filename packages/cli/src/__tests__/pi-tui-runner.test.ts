@@ -1302,7 +1302,8 @@ describe('Maka Pi TUI runner', () => {
     assertBottomPickerPlacement(
       terminal,
       'Choose an approach',
-      'Maka · Auto · claude-sonnet-4-5 · claude-subscription · /repo',
+      'claude-subscription · Auto',
+      'esc interrupt',
     );
     // The preset options and the free-text "Other" row are on screen together —
     // the option list is no longer swapped out for a separate text overlay.
@@ -2115,8 +2116,8 @@ describe('Maka Pi TUI runner', () => {
     assert.doesNotMatch(cumulative, /PgUp|PgDn|\d+ more/);
 
     // The visible screen follows the tail: the last reply line and the status
-    // line are on screen (status pinned to the bottom row), while the scrolled-off
-    // head is not — it now lives in the terminal's native scrollback.
+    // bar are on screen (the two-row status is pinned to the bottom), while the
+    // scrolled-off head is not — it now lives in the terminal's native scrollback.
     const screen = plainTerminalOutput(terminal.screenOutput()).split(/\r?\n/);
     assert.ok(
       screen.some((line) => line.includes('filler line 40')),
@@ -2128,7 +2129,7 @@ describe('Maka Pi TUI runner', () => {
       'the head should have scrolled off',
     );
     assert.equal(
-      screen[terminal.rows - 1]?.includes('Maka · Auto · deepseek-v4-flash · deepseek · /repo'),
+      screen[terminal.rows - 2]?.includes('bloodraven · Maka · DeepSeek V4 Flash · deepseek · Auto'),
       true,
     );
 
@@ -3273,7 +3274,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() => driver.sessionIds.length === 1);
     await waitFor(() =>
-      plainTerminalOutput(terminal.screenOutput()).includes('Maka · Read only ·'),
+      plainTerminalOutput(terminal.screenOutput()).includes('claude-subscription · Read only'),
     );
 
     terminal.input('/permissions');
@@ -3288,7 +3289,9 @@ describe('Maka Pi TUI runner', () => {
     await waitFor(() => driver.permissionModes.length === 1);
     assert.deepEqual(driver.permissionModes, ['ask']);
     await waitFor(() => terminal.output().includes('Permissions: Auto'));
-    await waitFor(() => plainTerminalOutput(terminal.screenOutput()).includes('Maka · Auto ·'));
+    await waitFor(() =>
+      plainTerminalOutput(terminal.screenOutput()).includes('claude-subscription · Auto'),
+    );
 
     exitMaka(terminal);
     await Promise.race([
@@ -3344,7 +3347,7 @@ describe('Maka Pi TUI runner', () => {
     assert.deepEqual(driver.modelConnections, ['zai']);
     // The status line now reflects both the new model and the new connection.
     await waitFor(() =>
-      plainTerminalOutput(terminal.output()).includes('Maka · Auto · glm-5.2 · zai · /repo'),
+      plainTerminalOutput(terminal.output()).includes('bloodraven · Maka · GLM 5.2 · zai · Auto'),
     );
 
     exitMaka(terminal);
@@ -3404,7 +3407,7 @@ describe('Maka Pi TUI runner', () => {
     assert.deepEqual(driver.models, ['glm-5.2']);
     assert.deepEqual(driver.modelConnections, ['zai']);
     await waitFor(() =>
-      plainTerminalOutput(terminal.output()).includes('Maka · Auto · glm-5.2 · zai · /repo'),
+      plainTerminalOutput(terminal.output()).includes('bloodraven · Maka · GLM 5.2 · zai · Auto'),
     );
 
     exitMaka(terminal);
@@ -3458,7 +3461,7 @@ describe('Maka Pi TUI runner', () => {
     assert.deepEqual(driver.models, []);
     assert.deepEqual(driver.modelConnections, []);
     assert.ok(
-      plainTerminalOutput(terminal.output()).includes('Maka · Auto · gpt-5.5 · openai · /repo'),
+      plainTerminalOutput(terminal.output()).includes('bloodraven · Maka · GPT 5.5 · openai · Auto'),
     );
 
     exitMaka(terminal);
@@ -3823,7 +3826,8 @@ describe('Maka Pi TUI runner', () => {
     assertBottomPickerPlacement(
       terminal,
       'Resume Session Current',
-      'Maka · Auto · claude-sonnet-4-5 · claude-subscription · /repo',
+      'claude-subscription · Auto',
+      'ctrl+o expand',
     );
     terminal.input('\r');
     await waitFor(() => driver.sessionIds.length === 1);
@@ -4054,7 +4058,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() => plainTerminalOutput(terminal.output()).includes('previous question'));
     await waitFor(() => plainTerminalOutput(terminal.output()).includes('previous answer'));
-    await waitFor(() => plainTerminalOutput(terminal.output()).includes('ctx 20k/500k 4%'));
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('20k (4%)'));
     await waitFor(() => plainTerminalOutput(terminal.output()).includes('cache 40%'));
     const output = plainTerminalOutput(terminal.output());
     assert.equal(output.includes('Session: session-2'), false);
@@ -4111,7 +4115,7 @@ describe('Maka Pi TUI runner', () => {
     // is 150_000 used, 75% — only correct if applySwitchResult re-resolved
     // modelContextWindow for the switched-to connection+model instead of
     // leaving the pre-switch session's 1_000 window in place.
-    await waitFor(() => plainTerminalOutput(terminal.output()).includes('ctx 150k/200k 75%'));
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('150k (75%)'));
 
     exitMaka(terminal);
     await Promise.race([
@@ -4151,8 +4155,9 @@ describe('Maka Pi TUI runner', () => {
     terminal.input('\r');
     await waitFor(() => terminal.output().includes('Resumed session "Existing chat"'));
     // The switched-to session's model ("legacy-model") is not in modelChoices,
-    // so no exact contextWindowMatch exists for it.
-    await waitFor(() => plainTerminalOutput(terminal.output()).includes('legacy-model'));
+    // so no exact contextWindowMatch exists for it. The status identity row
+    // shows the display name ("Legacy Model"), not the raw model id.
+    await waitFor(() => plainTerminalOutput(terminal.output()).includes('Legacy Model'));
 
     terminal.input('go');
     terminal.input('\r');
@@ -4163,7 +4168,7 @@ describe('Maka Pi TUI runner', () => {
 
     // Bug under test: the pre-switch session's 1_000 window must not survive
     // to render a (wrong) ctx total against the curated-out model's usage.
-    assert.doesNotMatch(plainTerminalOutput(terminal.output()), /ctx \d/);
+    assert.doesNotMatch(plainTerminalOutput(terminal.output()), /\d+k \(\d+%\)/);
 
     exitMaka(terminal);
     await Promise.race([
@@ -4479,8 +4484,14 @@ describe('Maka Pi TUI runner', () => {
     terminal.input('\x1b[B');
     terminal.input('\r');
     await waitFor(() => driver.sessionIds.includes('session-other'));
-    await waitFor(() => plainTerminalOutput(terminal.screenOutput()).includes('/elsewhere'));
-
+    // The resume notice doubles as the settle barrier: the switch runs through
+    // runControl (busy), so a slash command typed before it finishes is refused.
+    await waitFor(() =>
+      plainTerminalOutput(terminal.output()).includes('Resumed session "Other chat"'),
+    );
+    // The opencode-style status bar no longer carries the cwd; the resumed
+    // session's working directory is instead visible in the All-scope picker,
+    // which annotates each row with its directory's basename.
     terminal.input('/session');
     terminal.input('\r');
     await waitFor(() =>
@@ -4491,6 +4502,9 @@ describe('Maka Pi TUI runner', () => {
       plainTerminalOutput(terminal.screenOutput()).includes('Resume Session Current'),
     );
     const currentOutput = plainTerminalOutput(terminal.screenOutput());
+    // The Current scope filters by the adopted cwd: 'Other chat' (cwd
+    // /elsewhere) is shown, 'Current chat' (cwd /repo) is filtered out — the
+    // status bar no longer carries the cwd, so this is its only TUI surface.
     assert.equal(currentOutput.includes('Other chat'), true);
     assert.equal(currentOutput.includes('Current chat'), false);
 
@@ -5349,7 +5363,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() =>
       plainTerminalOutput(terminal.output()).includes(
-        'Maka · Auto · claude-sonnet-4-5 · claude-subscription · /repo',
+        'bloodraven · Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
       ),
     );
 
@@ -5390,7 +5404,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() =>
       plainTerminalOutput(terminal.output()).includes(
-        'Maka · Auto · claude-sonnet-4-5 · claude-subscription · /repo',
+        'bloodraven · Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
       ),
     );
 
@@ -5429,7 +5443,7 @@ describe('Maka Pi TUI runner', () => {
 
     await waitFor(() =>
       plainTerminalOutput(terminal.output()).includes(
-        'Maka · Auto · claude-sonnet-4-5 · claude-subscription · /repo',
+        'bloodraven · Maka · Claude Sonnet 4 5 · claude-subscription · Auto',
       ),
     );
 
@@ -6232,7 +6246,8 @@ describe('Maka Pi TUI runner', () => {
 
     assert.deepEqual(driver.sessionIds, ['session-2']);
     assert.deepEqual(driver.prompts, []);
-    assert.ok(plainTerminalOutput(terminal.screenOutput()).includes('swarm'));
+    // The opencode-style status bar carries no orchestration indicator; the
+    // resumed swarm mode is verified below by the /swarm status command.
 
     terminal.input('/swarm status');
     terminal.input('\r');

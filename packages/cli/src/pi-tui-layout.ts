@@ -53,7 +53,10 @@ export class MakaStatusLineComponent implements Component {
   invalidate(): void {}
 
   render(width: number): string[] {
-    return [renderMakaPiStatusLine(this.metadata(), width)];
+    // Two rows now: identity + metrics (opencode-style bottom bar). chromeRows
+    // in the layout counts `.length`, so the extra row is accounted for without
+    // a magic constant here.
+    return renderMakaPiStatusLine(this.metadata(), width);
   }
 }
 

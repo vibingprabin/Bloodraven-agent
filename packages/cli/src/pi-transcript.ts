@@ -1,4 +1,4 @@
-import { Markdown } from '@earendil-works/pi-tui';
+import { Markdown, truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import type {
   ProviderRetryEvent,
   SandboxBoundaryRequestEvent,
@@ -1238,26 +1238,57 @@ export function permissionModeLabel(mode: string): string {
   return 'Auto';
 }
 
-export function renderMakaPiStatusLine(metadata: MakaPiTranscriptMetadata, width: number): string {
+/**
+ * opencode-style two-row bottom bar rendered below the editor. Row 1 is the
+ * identity row (brand · model · connection · permission mode); row 2 the
+ * metrics row (shortcuts left, usage right). Both rows are pure functions of
+ * metadata + width — no module state — so render-cache keys can rely on them.
+ * The usage tail (ctx/cost/cache) is protected: when a row overflows the left
+ * side truncates with an ellipsis, because a wrapped status row would break
+ * the TUI's height accounting (visible width > width is a hard invariant).
+ */
+export function renderMakaPiStatusLine(
+  metadata: MakaPiTranscriptMetadata,
+  width: number,
+): string[] {
   const safeWidth = Math.max(1, width);
-  const sep = ansi.dim(' · ');
-  // The brand bar carries the wordmark, so the status-line title is dim like
-  // the rest of the usage bar rather than bold (opencode-style restraint).
-  const parts: string[] = [
-    ansi.dim(metadata.title),
-    ansi.dim(permissionModeLabel(metadata.permissionMode)),
-    ansi.dim(metadata.model),
+  return [
+    renderStatusIdentityRow(metadata, safeWidth),
+    renderStatusMetricsRow(metadata, safeWidth),
   ];
-  // #1064: omit thinking:default — it is noise before the user explicitly
-  // changes the level. Only a non-default, explicitly set level shows.
-  if (metadata.thinkingLevel) {
-    parts.push(ansi.dim(`thinking:${metadata.thinkingLevel}`));
+}
+
+function renderStatusIdentityRow(metadata: MakaPiTranscriptMetadata, width: number): string {
+  const left: string[] = [ansi.accent('bloodraven')];
+  // The brand bar carries the wordmark, so the session title is dim like the
+  // rest of the usage bar rather than bold (opencode-style restraint), and it
+  // is omitted entirely when it matches the default app name.
+  const title = metadata.title;
+  if (title && title.toLowerCase() !== 'bloodraven') {
+    left.push(ansi.dim(title));
   }
-  if (metadata.orchestrationMode === 'swarm') {
-    parts.push(ansi.accent('swarm'));
-  } else if (metadata.orchestrationMode === 'graph') {
-    parts.push(ansi.accent('graph'));
+  left.push(ansi.dim(formatModelDisplayName(metadata.model)));
+  left.push(ansi.dim(metadata.connectionSlug));
+  const label = permissionModeLabel(metadata.permissionMode);
+  const right = [label === 'Full access' ? ansi.accent(label) : ansi.dim(label)];
+  return packStatusRow(left, right, width);
+}
+
+function renderStatusMetricsRow(metadata: MakaPiTranscriptMetadata, width: number): string {
+  const left: string[] = [];
+  if (metadata.turnElapsedMs !== undefined) {
+    // Frame derived from elapsed time: pure in metadata, and advances on the
+    // runner's 1s ticker that re-renders during a turn.
+    const frame =
+      CONTENT_SPINNER_FRAMES[
+        Math.floor(metadata.turnElapsedMs / 1_000) % CONTENT_SPINNER_FRAMES.length
+      ];
+    left.push(`${ansi.accent(frame)} ${ansi.dim('esc interrupt')}`);
+    left.push(ansi.dim(`${Math.floor(metadata.turnElapsedMs / 1_000)}s`));
+  } else {
+    left.push(ansi.dim('ctrl+o expand'), ansi.dim('ctrl+t thinking'), ansi.dim('/ commands'));
   }
+  const right: string[] = [];
   const usage = metadata.usage;
   if (usage) {
     // ctx segment: only show when contextRemaining is available, since
@@ -1269,25 +1300,58 @@ export function renderMakaPiStatusLine(metadata: MakaPiTranscriptMetadata, width
       const pct = Math.round((used / metadata.modelContextWindow) * 100);
       // #1064: color warning — yellow >80%, red >95%, dim otherwise.
       const ctxColor = pct > 95 ? ansi.red : pct > 80 ? ansi.yellow : ansi.dim;
-      parts.push(
-        ctxColor(
-          `ctx ${formatTokenCount(used)}/${formatTokenCount(metadata.modelContextWindow)} ${pct}%`,
-        ),
-      );
+      right.push(ctxColor(`${formatStatusCtx(used)} (${pct}%)`));
     }
     if (usage.costUsd > 0) {
-      parts.push(ansi.dim(`$${formatCost(usage.costUsd)}`));
+      right.push(ansi.dim(`$${formatCost(usage.costUsd)}`));
     }
     const totalCache = usage.cacheHitInput + usage.cacheMissInput;
     if (totalCache > 0) {
       const hitRate = Math.round((usage.cacheHitInput / totalCache) * 100);
-      parts.push(ansi.dim(`cache ${hitRate}%`));
+      right.push(ansi.dim(`cache ${hitRate}%`));
     }
   }
-  parts.push(ansi.dim(metadata.connectionSlug));
-  // #1064: shorten cwd to ~-relative path instead of the full path.
-  parts.push(ansi.dim(shortenCwd(metadata.cwd)));
-  return fitLine(parts.join(sep), safeWidth);
+  return packStatusRow(left, right, width);
+}
+
+/**
+ * Join `left` + `right` styled parts with the dim ` · ` separator. The right
+ * tail is protected; when the joined row overflows, leading left parts are
+ * dropped and a dim ellipsis marks the cut, so the visible width is always
+ * <= width.
+ */
+function packStatusRow(
+  left: readonly string[],
+  right: readonly string[],
+  width: number,
+): string {
+  const sep = ansi.dim(' · ');
+  const rightJoined = right.join(sep);
+  if (left.length === 0) return fitLine(rightJoined, width);
+  const full = [...left, ...right].join(sep);
+  if (visibleWidth(full) <= width) return full;
+  const rightWidth = visibleWidth(rightJoined);
+  const gap = right.length > 0 ? visibleWidth(sep) : 0;
+  // Reserve a column for the ellipsis that marks dropped leading parts.
+  const room = width - rightWidth - gap - 1;
+  if (room < 2) return fitLine(rightJoined, width);
+  let take = left.length;
+  let used = 0;
+  while (take > 0) {
+    const partWidth = visibleWidth(left[take - 1]!);
+    const partSep = take < left.length ? visibleWidth(sep) : 0;
+    if (used + partWidth + partSep > room) break;
+    used += partWidth + partSep;
+    take -= 1;
+  }
+  const kept = left.slice(take);
+  const body =
+    kept.length > 0
+      ? kept.join(sep)
+      : truncateToWidth(left[left.length - 1]!, Math.max(1, room), '…');
+  const prefix = take > 0 ? ansi.dim('…') : '';
+  const mid = right.length > 0 && body.length > 0 ? sep : '';
+  return `${prefix}${body}${mid}${rightJoined}`;
 }
 
 /**
@@ -1420,6 +1484,27 @@ function shortenCwd(cwd: string, homeDir?: string): string {
 function formatTokenCount(tokens: number): string {
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
   if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k`;
+  return String(tokens);
+}
+
+function formatModelDisplayName(model: string): string {
+  return model
+    .split('-')
+    .filter(Boolean)
+    .map((segment) => {
+      if (/^[a-z]+$/i.test(segment) && segment.length <= 4) return segment.toUpperCase();
+      if (segment.toLowerCase() === 'deepseek') return 'DeepSeek';
+      return segment.charAt(0).toUpperCase() + segment.slice(1);
+    })
+    .join(' ');
+}
+
+function formatStatusCtx(tokens: number): string {
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens >= 1_000) {
+    const k = tokens / 1_000;
+    return Number.isInteger(k) ? `${k}k` : `${k.toFixed(1)}k`;
+  }
   return String(tokens);
 }
 

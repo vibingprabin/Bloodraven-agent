@@ -102,17 +102,26 @@ export function autocompleteSuggestionLines(lines: readonly string[]): readonly 
 export function assertBottomPickerPlacement(
   terminal: FakeTerminal,
   title: string,
-  statusText: string,
+  identityText: string,
+  metricsText: string,
 ): void {
   const lines = plainTerminalOutput(terminal.screenOutput()).split(/\r?\n/);
   const titleIndex = lines.findIndex((line) => line.includes(title));
-  const statusLineIndex = lines.findIndex((line) => line.includes(statusText));
-  const [topEditorBorderIndex, bottomEditorBorderIndex] = inputSurfaceRows(lines);
+  const identityIndex = lines.findIndex((line) => line.includes(identityText));
+  const metricsIndex = lines.findIndex((line) => line.includes(metricsText));
+  // The picker sits directly above the input surface, so the editor's top
+  // border can be covered by it — only the bottom border is guaranteed on
+  // screen. It is the last `─` line, one row above the two-row status bar.
+  const bottomEditorBorderIndex = lines
+    .map((line, index) => (/^─+$/.test(line) ? index : -1))
+    .filter((index) => index >= 0)
+    .at(-1);
 
   assert.ok(titleIndex > 0);
-  assert.ok(titleIndex < topEditorBorderIndex);
-  assert.equal(bottomEditorBorderIndex, terminal.rows - 2);
-  assert.equal(statusLineIndex, terminal.rows - 1);
+  assert.ok(titleIndex < bottomEditorBorderIndex!);
+  assert.equal(bottomEditorBorderIndex, terminal.rows - 3);
+  assert.equal(identityIndex, terminal.rows - 2);
+  assert.equal(metricsIndex, terminal.rows - 1);
 }
 
 export function latestPlainLineContaining(output: string, text: string): string {

@@ -171,10 +171,10 @@ describe('MakaPiLayoutComponent viewport geometry', () => {
     assert.equal(top, lines.length - 25);
 
     // Each user entry is two composed lines (blank + prompt); bottom chrome is
-    // six (activity strip + divider + three editor rows + status line) and the
-    // brand bar adds one at the top. Truncate so the composed document ends
-    // exactly at the old composed top (lines.length - 24).
-    const keep = (lines.length - 24 - 7) / 2;
+    // seven (activity strip + divider + three editor rows + two-row status bar)
+    // and the brand bar adds one at the top. Truncate so the composed document
+    // ends exactly at the old composed top (lines.length - 24).
+    const keep = (lines.length - 24 - 8) / 2;
     assert.equal(keep, Math.floor(keep));
     state.entries.length = keep;
     const shrunk = layout.render(80);
