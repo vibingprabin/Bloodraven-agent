@@ -1822,26 +1822,13 @@ function renderNotice(entry: MakaPiNoticeEntry, width: number): string[] {
   return renderIndented(`${label}: ${entry.text}`, width, 0).map((line) => fitLine(line, width));
 }
 
-// Shown on a fresh, empty session. Greets with the branded maka wordmark and a
-// short tagline, then points at the command-center entry points (direct input,
-// /session, /model, /setup) — enough to start without reading docs.
-// Four-line lowercase ASCII maka wordmark in Maka blue (#1098). Pure ASCII so it
-// renders under any locale; stored without trailing spaces so the welcome lines
-// and their tests agree after rtrim. A terminal too narrow to fit it falls back
-// to a single `maka` line — see renderWelcomeBlock.
-const MAKA_WORDMARK_LINES = [
-  ' _ __    __ _  _  __   __ _',
-  "| '_ \\  / _` | | |/ / / _` |",
-  '| |_) | | (_| | |   <  | (_| |',
-  '|_.__/  \\__,_| |_|\\_\\  \\__,_|',
-];
-const MAKA_WORDMARK_WIDTH = Math.max(...MAKA_WORDMARK_LINES.map((line) => line.length));
-
 function renderWelcomeBlock(width: number): string[] {
-  // The branded home greets with the maka wordmark, a short tagline, and the
-  // command-center entry points (direct input, /session, /model, /setup) so a
-  // fresh session shows the main actions without typing `/`. The active model
-  // and connection live in the statusline, so the welcome does not repeat them.
+  // The branded home greets with the Bloodraven wordmark in the eye-red accent,
+  // a short tagline, and the command-center entry points (direct input, /session,
+  // /model, /setup) so a fresh session shows the main actions without typing `/`.
+  // The active model and connection live in the statusline, so the welcome does
+  // not repeat them. A terminal too narrow for the wordmark falls back to a
+  // short brand line.
   const hints: [string, string][] = [
     ['/session', 'switch or resume session'],
     ['/model', 'switch model'],
@@ -1849,13 +1836,8 @@ function renderWelcomeBlock(width: number): string[] {
   ];
   const keyWidth = Math.max(...hints.map(([key]) => key.length));
   const lines: string[] = [];
-  if (width < MAKA_WORDMARK_WIDTH) {
-    lines.push(fitLine(ansi.accent('maka'), width));
-  } else {
-    for (const line of MAKA_WORDMARK_LINES) {
-      lines.push(fitLine(ansi.accent(line), width));
-    }
-  }
+  const wordmark = 'Bloodraven';
+  lines.push(fitLine(ansi.accent(ansi.bold(wordmark)), width));
   lines.push('');
   lines.push(fitLine(ansi.dim('get things done with you'), width));
   lines.push('');

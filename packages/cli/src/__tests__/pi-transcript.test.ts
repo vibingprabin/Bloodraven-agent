@@ -32,33 +32,21 @@ import {
 // tests lock (#1064/#1066); matches tui-ansi.test.ts's reset convention.
 before(() => _setColorLevelForTesting(3));
 
-// The branded empty-session home opens on a four-line lowercase ASCII `maka`
-// wordmark in Maka blue (#1098). Stored without trailing spaces so the render
-// and these assertions agree after rtrim; the fallback width is derived from it.
-const MAKA_WORDMARK = [
-  ' _ __    __ _  _  __   __ _',
-  "| '_ \\  / _` | | |/ / / _` |",
-  '| |_) | | (_| | |   <  | (_| |',
-  '|_.__/  \\__,_| |_|\\_\\  \\__,_|',
-];
-const MAKA_WORDMARK_WIDTH = Math.max(...MAKA_WORDMARK.map((line) => line.length));
-
 describe('Maka Pi TUI transcript', () => {
-  test('greets on a fresh empty session with the branded maka home and drops it once a prompt lands', () => {
+  test('greets on a fresh empty session with the branded bloodraven home and drops it once a prompt lands', () => {
     const state = createMakaPiTranscriptState();
 
     const lines = renderMakaPiTranscript(state, meta(), 100).map((line) =>
       stripAnsi(line).replace(/\s+$/, ''),
     );
-    // Four-line lowercase ASCII maka wordmark.
-    assert.deepEqual(lines.slice(0, 4), MAKA_WORDMARK);
-    // The wordmark is the eye-red accent (#c52821), not plain text.
-    assert.ok(renderMakaPiTranscript(state, meta(), 100)[0].includes('\x1b[38;2;197;40;33m'));
-    // Short Chinese-first tagline.
-    assert.ok(lines.includes('陪你把事做完'));
+    // The wordmark is the eye-red accent and bold, and spells Bloodraven.
+    assert.ok(lines.some((line) => line.trim() === 'Bloodraven'));
+    assert.ok(renderMakaPiTranscript(state, meta(), 100).some((line) => line.includes('\x1b[38;2;197;40;33m')));
+    // Short tagline.
+    assert.ok(lines.includes('get things done with you'));
     // Command-center hints: direct input + /session + /model + /setup. /help is
     // no longer a home hint — autocomplete teaches commands as you type.
-    assert.ok(lines.some((line) => line.trim().startsWith('输入消息开始对话')));
+    assert.ok(lines.some((line) => line.trim().startsWith('type a message to start')));
     assert.ok(lines.some((line) => /\/session/.test(line)));
     assert.ok(lines.some((line) => /\/model/.test(line)));
     assert.ok(lines.some((line) => /\/setup/.test(line)));
