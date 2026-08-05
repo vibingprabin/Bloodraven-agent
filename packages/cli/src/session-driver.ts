@@ -91,6 +91,13 @@ export interface MakaSessionRewindResult extends MakaSessionSwitchResult {
   prompt: string;
 }
 
+/**
+ * A fork result: the branched session's summary + messages (as with a switch).
+ * Unlike a rewind result there is no `prompt` — the fork keeps the full
+ * conversation through the chosen turn, so nothing needs to be re-asked.
+ */
+export interface MakaSessionForkResult extends MakaSessionSwitchResult {}
+
 export interface MakaSessionDriverInput {
   runtime: MakaSessionRuntime;
   cwd: string;
@@ -169,8 +176,18 @@ export interface MakaSessionDriver {
    * Rewind to a turn: branch the session to the state just *before* that turn
    * (discarding it and everything after), switch onto the branch, and return the
    * turn's prompt so the caller can refill the editor for an edit-and-resend.
+   * Contrast forkFromTurn, which keeps the turn and everything before it.
    */
   rewindToTurn(turnId: string): Promise<MakaSessionRewindResult>;
+  /**
+   * Fork at a turn: branch the session to the state *through* that turn (keeping
+   * it and everything before, discarding later turns), switch onto the branch,
+   * and return the branch summary + messages. Unlike rewind there is no refill
+   * prompt — the conversation through the chosen turn is preserved, so nothing
+   * needs to be re-asked. Optional so lightweight host adapters and driver stubs
+   * need not implement the fork surface.
+   */
+  forkFromTurn?(turnId: string, name?: string): Promise<MakaSessionForkResult>;
   /** Abandon the active session so the next prompt starts a fresh one. */
   startNewSession(): void;
   stop(): Promise<void>;
@@ -497,6 +514,22 @@ class RuntimeMakaSessionDriver implements MakaSessionDriver {
       sourceTurnId: turnId,
     });
     return { ...(await this.switchSession(branch.id)), prompt };
+  }
+
+  async forkFromTurn(turnId: string, name?: string): Promise<MakaSessionForkResult> {
+    if (!this.sessionId) throw new Error('Cannot fork before a session starts.');
+    // Branch *through* the turn (copies transcript + ledger up to and including
+    // it, dropping later turns), then switch onto the branch. switchSession
+    // re-validates folder/connection and loads the branched messages, so the
+    // branch inherits the same resume guarantees as any resumed session and the
+    // original session — including the discarded later turns — is left
+    // untouched. Unlike rewind there is no prompt to refill: the conversation
+    // through the chosen turn is preserved in full.
+    const branch = await this.input.runtime.branchFromTurn(this.sessionId, {
+      sourceTurnId: turnId,
+      name,
+    });
+    return this.switchSession(branch.id);
   }
 
   startNewSession(): void {

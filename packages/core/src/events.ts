@@ -937,6 +937,12 @@ export interface TokenUsageEvent extends BaseEvent {
   contextBudget?: ContextBudgetDiagnostic;
   /** Links this aggregate to per-physical-request AgentRun trace rows. */
   providerRequestTraceId?: string;
+  /**
+   * Emission granularity. 'step' = a per-provider-step delta pushed live during
+   * the turn so consumers can render a running total; 'turn' = the single
+   * turn-end aggregate. Omitted on legacy emitters.
+   */
+  granularity?: 'step' | 'turn';
 }
 
 /**

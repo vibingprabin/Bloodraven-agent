@@ -1048,6 +1048,93 @@ describe('Maka session driver', () => {
     assert.deepEqual(runtime.branchedBefore, []);
   });
 
+  test('forks by branching through the turn, switching onto the branch, and returning its messages', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'maka-fork-cwd-'));
+    try {
+      const runtime = new RecordingRuntime();
+      runtime.sessionSummaries = [
+        sessionSummary({ id: 'session-1', cwd: repo, orchestrationMode: 'swarm' }),
+      ];
+      runtime.sessionMessages.set('session-1', [
+        storedUserMessage('user-1', 'turn-1', 'first question'),
+        storedAssistantMessage('assistant-1', 'turn-1', 'first answer'),
+        storedUserMessage('user-2', 'turn-2', 'second question\nwith detail'),
+        storedAssistantMessage('assistant-2', 'turn-2', 'second answer'),
+        storedUserMessage('user-3', 'turn-3', 'third question'),
+      ]);
+      const driver = createMakaSessionDriver({
+        runtime,
+        cwd: repo,
+        llmConnectionSlug: 'anthropic',
+        model: 'claude-sonnet-4-5',
+      });
+      await driver.switchSession('session-1');
+
+      const result = await driver.forkFromTurn!('turn-2', 'forked');
+
+      // Branches *through* turn-2 (keeping it + everything before, dropping the
+      // later turns) and forwards the requested branch name. Unlike rewind there
+      // is no refill prompt — the conversation is preserved, so nothing needs to
+      // be re-asked.
+      assert.deepEqual(runtime.branched, [
+        { sessionId: 'session-1', sourceTurnId: 'turn-2', name: 'forked' },
+      ]);
+      assert.deepEqual(runtime.branchedBefore, []);
+      assert.equal(result.summary.id, 'session-1-branch');
+      assert.equal('prompt' in result, false);
+      assert.deepEqual(
+        result.messages.map((message) => message.id),
+        ['user-1', 'assistant-1', 'user-2', 'assistant-2', 'user-3'],
+      );
+      assert.equal(driver.getSessionId(), 'session-1-branch');
+      assert.equal(driver.getOrchestrationMode?.(), 'swarm');
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('forks through a turn with no user prompt (unlike rewind, no prompt is read)', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'maka-fork-noprompt-'));
+    try {
+      const runtime = new RecordingRuntime();
+      runtime.sessionSummaries = [sessionSummary({ id: 'session-1', cwd: repo })];
+      runtime.sessionMessages.set('session-1', [
+        storedUserMessage('user-1', 'turn-1', 'first question'),
+        storedAssistantMessage('assistant-1', 'turn-1', 'first answer'),
+        storedContextCompactedNote('note-1', 'turn-compact'),
+      ]);
+      const driver = createMakaSessionDriver({
+        runtime,
+        cwd: repo,
+        llmConnectionSlug: 'anthropic',
+        model: 'claude-sonnet-4-5',
+      });
+      await driver.switchSession('session-1');
+
+      const result = await driver.forkFromTurn!('turn-compact');
+
+      assert.deepEqual(runtime.branched, [
+        { sessionId: 'session-1', sourceTurnId: 'turn-compact', name: undefined },
+      ]);
+      assert.equal(result.summary.id, 'session-1-branch');
+      assert.equal('prompt' in result, false);
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  test('rejects fork before a session starts', async () => {
+    const runtime = new RecordingRuntime();
+    const driver = createMakaSessionDriver({
+      runtime,
+      cwd: '/repo',
+      llmConnectionSlug: 'anthropic',
+      model: 'claude-sonnet-4-5',
+    });
+    await assert.rejects(driver.forkFromTurn!('turn-1'), /before a session starts/);
+    assert.deepEqual(runtime.branched, []);
+  });
+
   test('startNewSession makes the next prompt create a fresh session, keeping settings', async () => {
     const runtime = new RecordingRuntime();
     const driver = createMakaSessionDriver({
@@ -1169,7 +1256,7 @@ class RecordingRuntime {
       name?: string;
     };
   }> = [];
-  readonly branched: Array<{ sessionId: string; sourceTurnId: string }> = [];
+  readonly branched: Array<{ sessionId: string; sourceTurnId: string; name?: string }> = [];
   readonly branchedBefore: Array<{ sessionId: string; sourceTurnId: string }> = [];
   readonly sessionMessages = new Map<string, StoredMessage[]>();
   readonly executionBoundaries = new Map<string, ExecutionBoundary>();
@@ -1404,7 +1491,7 @@ class RecordingRuntime {
     sessionId: string,
     input: { sourceTurnId: string; name?: string },
   ): Promise<SessionSummary> {
-    this.branched.push({ sessionId, sourceTurnId: input.sourceTurnId });
+    this.branched.push({ sessionId, sourceTurnId: input.sourceTurnId, name: input.name });
     return this.recordBranch(sessionId);
   }
 

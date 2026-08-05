@@ -766,6 +766,11 @@ export class AiSdkBackend implements AgentBackend {
     // result.usage.inputTokens is cumulative across steps and would produce
     // misleading >100% percentages, so the per-step value is captured here.
     let lastStepInputTokens: number | undefined;
+    // True once at least one per-step `token_usage` delta has been pushed to the
+    // queue for this send. The turn-end aggregate lives in the queue only when
+    // no per-step delta was emitted (single usable sample without a step
+    // boundary), so live consumers that ADD every event never double count.
+    let emittedStepUsageEvents = false;
     let streamStatus: LlmCallRecord['status'] = 'success';
     let streamErrorClass: string | undefined;
     let rawFinishReason: string | undefined;
@@ -1341,6 +1346,60 @@ export class AiSdkBackend implements AgentBackend {
                       ...this.cumulativeUsageCheckpoint,
                       costUsd: this.computeTokenUsageCostUsd(this.cumulativeUsageCheckpoint),
                     });
+                    // Live per-step delta so the TUI status bar tracks usage
+                    // during the turn, not just after it. `stepUsage` is this
+                    // step's own provider-reported delta (the turn-end aggregate
+                    // is the merge of these), so consumers that sum events
+                    // arrive at the same totals as before.
+                    emittedStepUsageEvents = true;
+                    const stepCostUsd = this.computeTokenUsageCostUsd(stepUsage);
+                    const stepContextRemaining = (() => {
+                      const contextWindow = resolveSelectedModelContextWindow(
+                        this.input.connection,
+                        this.input.modelId,
+                      );
+                      if (lastStepInputTokens !== undefined && contextWindow !== undefined) {
+                        return Math.max(0, contextWindow - lastStepInputTokens);
+                      }
+                      return undefined;
+                    })();
+                    queue.push({
+                      type: 'token_usage',
+                      id: this.newId(),
+                      turnId,
+                      ts: this.now(),
+                      input: stepUsage.inputTokens,
+                      output: stepUsage.outputTokens,
+                      cacheHitInput: stepUsage.cacheHitInputTokens,
+                      cacheMissInput: stepUsage.cacheMissInputTokens,
+                      cacheMissInputSource: stepUsage.cacheMissInputSource,
+                      cacheWriteInput: stepUsage.cacheWriteInputTokens,
+                      reasoning: stepUsage.reasoningTokens,
+                      total: stepUsage.totalTokens,
+                      ...(stepUsage.rawFinishReason !== undefined
+                        ? { rawFinishReason: stepUsage.rawFinishReason }
+                        : {}),
+                      ...(runtimeSteps > 0 ? { runtimeSteps } : {}),
+                      ...(stepUsage.cachedInputTokens > 0
+                        ? { cacheRead: stepUsage.cachedInputTokens }
+                        : {}),
+                      ...(stepUsage.cacheWriteInputTokens > 0
+                        ? { cacheCreation: stepUsage.cacheWriteInputTokens }
+                        : {}),
+                      ...(stepCostUsd !== undefined ? { costUsd: stepCostUsd } : {}),
+                      systemPromptHash: turnDiagnostics.requestShape.componentHashes
+                        .systemPromptHash,
+                      prefixHash: turnDiagnostics.requestShape.prefixHash,
+                      prefixChangeReason: turnDiagnostics.requestShape.prefixChangeReason,
+                      requestShapeHash: turnDiagnostics.requestShape.requestShapeHash,
+                      requestShapeChangeReason: turnDiagnostics.requestShape.requestShapeChangeReason,
+                      promptSegments: turnDiagnostics.promptSegments,
+                      ...(stepContextRemaining !== undefined
+                        ? { contextRemaining: stepContextRemaining }
+                        : {}),
+                      ...(providerRequestTraceId ? { providerRequestTraceId } : {}),
+                      granularity: 'step',
+                    } satisfies TokenUsageEvent);
                   }
                 }
                 if (event.kind === 'finish' || event.kind === 'step-finish') {
@@ -1741,42 +1800,50 @@ export class AiSdkBackend implements AgentBackend {
               }
               return undefined;
             })();
-            queue.push({
-              type: 'token_usage',
-              id: this.newId(),
-              turnId,
-              ts: this.now(),
-              input: tokenUsage.inputTokens,
-              output: tokenUsage.outputTokens,
-              cacheHitInput: tokenUsage.cacheHitInputTokens,
-              cacheMissInput: tokenUsage.cacheMissInputTokens,
-              cacheMissInputSource: tokenUsage.cacheMissInputSource,
-              cacheWriteInput: tokenUsage.cacheWriteInputTokens,
-              reasoning: tokenUsage.reasoningTokens,
-              total: tokenUsage.totalTokens,
-              ...(tokenUsage.rawFinishReason !== undefined
-                ? { rawFinishReason: tokenUsage.rawFinishReason }
-                : {}),
-              ...(runtimeSteps > 0 ? { runtimeSteps } : {}),
-              ...(tokenUsage.cachedInputTokens > 0
-                ? { cacheRead: tokenUsage.cachedInputTokens }
-                : {}),
-              ...(tokenUsage.cacheWriteInputTokens > 0
-                ? { cacheCreation: tokenUsage.cacheWriteInputTokens }
-                : {}),
-              ...(tokenUsageCostUsd !== undefined ? { costUsd: tokenUsageCostUsd } : {}),
-              systemPromptHash,
-              prefixHash: turnDiagnostics.requestShape.prefixHash,
-              prefixChangeReason: turnDiagnostics.requestShape.prefixChangeReason,
-              requestShapeHash: turnDiagnostics.requestShape.requestShapeHash,
-              requestShapeChangeReason: turnDiagnostics.requestShape.requestShapeChangeReason,
-              promptSegments: turnDiagnostics.promptSegments,
-              ...(contextBudgetForUsage ? { contextBudget: contextBudgetForUsage } : {}),
-              ...(contextRemainingForUsage !== undefined
-                ? { contextRemaining: contextRemainingForUsage }
-                : {}),
-              ...(providerRequestTraceId ? { providerRequestTraceId } : {}),
-            } satisfies TokenUsageEvent);
+            // The aggregate lives on the queue only when no per-step delta was
+            // emitted for this send; consumers that ADD every `token_usage`
+            // event must not see the same tokens twice. The durable aggregate
+            // above is appended unconditionally so session reload keeps one
+            // aggregate (or the stored deltas summing to it) per turn.
+            if (!emittedStepUsageEvents) {
+              queue.push({
+                type: 'token_usage',
+                id: this.newId(),
+                turnId,
+                ts: this.now(),
+                input: tokenUsage.inputTokens,
+                output: tokenUsage.outputTokens,
+                cacheHitInput: tokenUsage.cacheHitInputTokens,
+                cacheMissInput: tokenUsage.cacheMissInputTokens,
+                cacheMissInputSource: tokenUsage.cacheMissInputSource,
+                cacheWriteInput: tokenUsage.cacheWriteInputTokens,
+                reasoning: tokenUsage.reasoningTokens,
+                total: tokenUsage.totalTokens,
+                ...(tokenUsage.rawFinishReason !== undefined
+                  ? { rawFinishReason: tokenUsage.rawFinishReason }
+                  : {}),
+                ...(runtimeSteps > 0 ? { runtimeSteps } : {}),
+                ...(tokenUsage.cachedInputTokens > 0
+                  ? { cacheRead: tokenUsage.cachedInputTokens }
+                  : {}),
+                ...(tokenUsage.cacheWriteInputTokens > 0
+                  ? { cacheCreation: tokenUsage.cacheWriteInputTokens }
+                  : {}),
+                ...(tokenUsageCostUsd !== undefined ? { costUsd: tokenUsageCostUsd } : {}),
+                systemPromptHash,
+                prefixHash: turnDiagnostics.requestShape.prefixHash,
+                prefixChangeReason: turnDiagnostics.requestShape.prefixChangeReason,
+                requestShapeHash: turnDiagnostics.requestShape.requestShapeHash,
+                requestShapeChangeReason: turnDiagnostics.requestShape.requestShapeChangeReason,
+                promptSegments: turnDiagnostics.promptSegments,
+                ...(contextBudgetForUsage ? { contextBudget: contextBudgetForUsage } : {}),
+                ...(contextRemainingForUsage !== undefined
+                  ? { contextRemaining: contextRemainingForUsage }
+                  : {}),
+                ...(providerRequestTraceId ? { providerRequestTraceId } : {}),
+                granularity: 'turn',
+              } satisfies TokenUsageEvent);
+            }
           }
         } catch {
           // best-effort; ai-sdk usage promise may reject on abort

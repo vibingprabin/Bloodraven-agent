@@ -3037,11 +3037,14 @@ describe('AiSdkBackend model history', () => {
   test('history search does not re-add stale full tool results after archive pruning', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     const oldResult = { body: 'SECRET_PAYLOAD_SHOULD_NOT_RETURN'.repeat(20) };
     const backend = createTestAiSdkBackend({
       sessionId: 'session-1',
       header: header(),
-      appendMessage: async () => {},
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
       connection: connection(),
       apiKey: 'sk-test',
       modelId: 'mock-model-id',
@@ -3113,10 +3116,9 @@ describe('AiSdkBackend model history', () => {
 
     const prompt = JSON.stringify(compactPrompt(model));
     assert.equal(prompt.includes(oldResult.body), false);
-    const usage = events.find(
-      (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
-        event.type === 'token_usage',
-    );
+    const usage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as { contextBudget?: { archivePlaceholders?: number; historySearchMatches?: number } } | undefined;
     assert.equal(usage?.contextBudget?.archivePlaceholders, 1);
     assert.equal(usage?.contextBudget?.historySearchMatches, 0);
   });
@@ -3124,12 +3126,15 @@ describe('AiSdkBackend model history', () => {
   test('hydrates archived RuntimeEvent tool results for model replay when retrieval is enabled', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     let archivedBody = '';
     const oldResult = { body: 'retrieved 中文 archived payload 🙂'.repeat(3) };
     const backend = createTestAiSdkBackend({
       sessionId: 'session-1',
       header: header(),
-      appendMessage: async () => {},
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
       connection: connection(),
       apiKey: 'sk-test',
       modelId: 'mock-model-id',
@@ -3205,10 +3210,11 @@ describe('AiSdkBackend model history', () => {
     const prompt = JSON.stringify(compactPrompt(model));
     assert.match(prompt, /retrieved 中文 archived payload/);
     assert.equal(prompt.includes('maka.archived_tool_result'), false);
-    const usage = events.find(
-      (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
-        event.type === 'token_usage',
-    );
+    const usage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as
+      | { contextBudget?: { retrievedArchiveToolResults?: number; archiveRetrievalFailures?: number } }
+      | undefined;
     assert.equal(usage?.contextBudget?.retrievedArchiveToolResults, 1);
     assert.equal(usage?.contextBudget?.archiveRetrievalFailures, 0);
   });
@@ -3256,6 +3262,7 @@ describe('AiSdkBackend model history', () => {
   test('uses selected synthesis block instead of hydrating covered archived payload', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     const archivedBodies = new Map<string, string>();
     const readRuntimeEventIds: string[] = [];
     const writeInputs: Array<{ turnId: string; query: string }> = [];
@@ -3274,7 +3281,9 @@ describe('AiSdkBackend model history', () => {
     const backend = createTestAiSdkBackend({
       sessionId: 'session-1',
       header: header(),
-      appendMessage: async () => {},
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
       connection: connection(),
       apiKey: 'sk-test',
       modelId: 'mock-model-id',
@@ -3374,10 +3383,17 @@ describe('AiSdkBackend model history', () => {
     assert.match(prompt, /maka_synthesis_cache_block/);
     assert.match(prompt, /SYNTHESIS_SENTINEL_KEY_ALPHA/);
     assert.equal(prompt.includes('RAW_SYNTHESIS_ARCHIVE_PAYLOAD'), false);
-    const usage = events.find(
-      (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
-        event.type === 'token_usage',
-    );
+    const usage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as
+      | {
+          contextBudget?: {
+            synthesisCacheBlocksSelected?: number;
+            synthesisCacheBlockIds?: string[];
+            retrievedArchiveToolResults?: number;
+          };
+        }
+      | undefined;
     assert.equal(usage?.contextBudget?.synthesisCacheBlocksSelected, 1);
     assert.deepEqual(usage?.contextBudget?.synthesisCacheBlockIds, ['synth-key-alpha']);
     assert.equal(usage?.contextBudget?.retrievedArchiveToolResults, undefined);
@@ -3525,6 +3541,7 @@ describe('AiSdkBackend model history', () => {
   test('loads synthesis blocks before archive retrieval', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     const archivedBodies = new Map<string, string>();
     const readRuntimeEventIds: string[] = [];
     const oldResult = { body: 'RAW_LOADED_SYNTHESIS_ARCHIVE_PAYLOAD'.repeat(20) };
@@ -3543,7 +3560,9 @@ describe('AiSdkBackend model history', () => {
     const backend = createTestAiSdkBackend({
       sessionId: 'session-1',
       header: header(),
-      appendMessage: async () => {},
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
       connection: connection(),
       apiKey: 'sk-test',
       modelId: 'mock-model-id',
@@ -3641,10 +3660,11 @@ describe('AiSdkBackend model history', () => {
     const prompt = JSON.stringify(compactPrompt(model));
     assert.match(prompt, /maka_synthesis_cache_block/);
     assert.equal(prompt.includes('RAW_LOADED_SYNTHESIS_ARCHIVE_PAYLOAD'), false);
-    const usage = events.find(
-      (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
-        event.type === 'token_usage',
-    );
+    const usage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as
+      | { contextBudget?: { synthesisCacheBlocksLoaded?: number; synthesisCacheBlocksSelected?: number } }
+      | undefined;
     assert.equal(usage?.contextBudget?.synthesisCacheBlocksLoaded, 1);
     assert.equal(usage?.contextBudget?.synthesisCacheBlocksSelected, 1);
   });
@@ -3652,6 +3672,7 @@ describe('AiSdkBackend model history', () => {
   test('writes synthesis cache after successful gated archive retrieval without injecting it into the same request', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     const archivedBodies = new Map<string, string>();
     const writeInputs: Array<{ sourceRefCount: number; hydratedHasRaw: boolean }> = [];
     const oldResult = { body: 'RAW_WRITE_SYNTHESIS_ARCHIVE_PAYLOAD'.repeat(20), key: 'key-alpha' };
@@ -3669,7 +3690,9 @@ describe('AiSdkBackend model history', () => {
     const backend = createTestAiSdkBackend({
       sessionId: 'session-1',
       header: header(),
-      appendMessage: async () => {},
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
       connection: connection(),
       apiKey: 'sk-test',
       modelId: 'mock-model-id',
@@ -3771,10 +3794,17 @@ describe('AiSdkBackend model history', () => {
     const prompt = JSON.stringify(compactPrompt(model));
     assert.match(prompt, /RAW_WRITE_SYNTHESIS_ARCHIVE_PAYLOAD/);
     assert.equal(prompt.includes('SYNTHESIS_SENTINEL_KEY_ALPHA'), false);
-    const usage = events.find(
-      (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
-        event.type === 'token_usage',
-    );
+    const usage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as
+      | {
+          contextBudget?: {
+            synthesisCacheWritesAttempted?: number;
+            synthesisCacheBlocksWritten?: number;
+            synthesisCacheWrittenBlockIds?: string[];
+          };
+        }
+      | undefined;
     assert.equal(usage?.contextBudget?.synthesisCacheWritesAttempted, 1);
     assert.equal(usage?.contextBudget?.synthesisCacheBlocksWritten, 1);
     assert.deepEqual(usage?.contextBudget?.synthesisCacheWrittenBlockIds, ['synth-key-alpha']);
@@ -3783,6 +3813,7 @@ describe('AiSdkBackend model history', () => {
   test('falls back to gated archive retrieval when synthesis request asks for evidence', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     const archivedBodies = new Map<string, string>();
     const readRuntimeEventIds: string[] = [];
     const writeInputs: Array<{ turnId: string; query: string }> = [];
@@ -7105,8 +7136,8 @@ describe('AiSdkBackend usage telemetry', () => {
       },
     });
     const backend = createTestAiSdkBackend({
-      sessionId: 'session-1',
-      header: { ...header(), collaborationMode: 'agent' },
+sessionId: 'session-1',
+      header: header(),
       appendMessage: async () => {},
       connection: connection(),
       apiKey: 'sk-test',
@@ -7597,7 +7628,11 @@ describe('AiSdkBackend usage telemetry', () => {
       firstTurn.record(event);
       events.push(event);
     }
-    await drainDurably(backend.send(secondTurn.input()), secondTurn);
+    const secondTurnEvents = await drainDurably(
+      backend.send(secondTurn.input()),
+      secondTurn,
+    );
+    events.push(...secondTurnEvents);
 
     const usageMessage = messages.find(
       (message) => (message as { type?: string }).type === 'token_usage',
@@ -7616,9 +7651,10 @@ describe('AiSdkBackend usage telemetry', () => {
           rawFinishReason?: string;
         }
       | undefined;
-    const usageEvent = events.find((event) => event.type === 'token_usage') as
-      | Extract<SessionEvent, { type: 'token_usage' }>
-      | undefined;
+    const usageEvents = events.filter(
+      (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
+        event.type === 'token_usage',
+    );
 
     assert.equal(streamCalls, 3);
     assert.equal(usageMessage?.input, 300);
@@ -7632,7 +7668,25 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.equal(usageMessage?.reasoning, 2);
     assert.equal(usageMessage?.total, 312);
     assert.equal(usageMessage?.rawFinishReason, 'stop');
-    assert.equal(usageEvent?.input, 300);
+    // One live per-step delta per provider request; no turn-end aggregate is
+    // pushed when per-step deltas were emitted (a consumer that adds every
+    // event would otherwise see the same tokens twice).
+    assert.equal(usageEvents.length, 3);
+    assert.deepEqual(
+      usageEvents.map((event) => ({ input: event.input, output: event.output })),
+      [
+        { input: 100, output: 5 },
+        { input: 200, output: 7 },
+        { input: 200, output: 7 },
+      ],
+    );
+    // The first turn's per-step deltas sum exactly to its durable aggregate.
+    const firstTurnDeltas = usageEvents.slice(0, 2);
+    assert.equal(firstTurnDeltas.reduce((sum, event) => sum + event.input, 0), usageMessage?.input);
+    assert.equal(
+      firstTurnDeltas.reduce((sum, event) => sum + event.output, 0),
+      usageMessage?.output,
+    );
     assert.deepEqual(
       usageCheckpoints.map(({ inputTokens, outputTokens }) => ({ inputTokens, outputTokens })),
       [
@@ -7843,11 +7897,6 @@ describe('AiSdkBackend usage telemetry', () => {
     const usageMessage = messages.find(
       (message) => (message as { type?: string }).type === 'token_usage',
     ) as { contextBudget?: Record<string, unknown> } | undefined;
-    const usageEvent = events.find((event) => event.type === 'token_usage') as
-      | (Extract<SessionEvent, { type: 'token_usage' }> & {
-          contextBudget?: Record<string, unknown>;
-        })
-      | undefined;
     assert.equal(streamCalls, 3);
     const secondPrompt = JSON.stringify(prompts[1]);
     assert.match(secondPrompt, /SECRET_PAYLOAD_SHOULD_BE_ARCHIVED/);
@@ -7856,11 +7905,12 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.doesNotMatch(thirdPrompt, /SECRET_PAYLOAD_SHOULD_BE_ARCHIVED/);
     assert.match(thirdPrompt, /artifact-tool-1/);
     assert.match(thirdPrompt, /NEWEST_RESULT_STAYS_VISIBLE/);
-    for (const contextBudget of [usageMessage?.contextBudget, usageEvent?.contextBudget]) {
-      assert.equal(contextBudget?.activePrunedToolResults, 1);
-      assert.equal(contextBudget?.activeArchiveFailures, undefined);
-      assert.ok(((contextBudget?.activeEstimatedTokensSaved as number | undefined) ?? 0) > 0);
-    }
+    // The final context budget rides the durable aggregate; per-step deltas
+    // carry the step's token counts but no mid-stream budget snapshot.
+    const contextBudget = usageMessage?.contextBudget;
+    assert.equal(contextBudget?.activePrunedToolResults, 1);
+    assert.equal(contextBudget?.activeArchiveFailures, undefined);
+    assert.ok(((contextBudget?.activeEstimatedTokensSaved as number | undefined) ?? 0) > 0);
   });
 
   test('active full compact sees the fresh tool result before active tool-result prune', async () => {
@@ -7997,30 +8047,26 @@ describe('AiSdkBackend usage telemetry', () => {
     const usageMessage = messages.find(
       (message) => (message as { type?: string }).type === 'token_usage',
     ) as { contextBudget?: Record<string, unknown> } | undefined;
-    const usageEvent = events.find((event) => event.type === 'token_usage') as
-      | (Extract<SessionEvent, { type: 'token_usage' }> & {
-          contextBudget?: Record<string, unknown>;
-        })
+    // The final context budget (with this turn's compaction decision) rides the
+    // durable aggregate; per-step deltas carry token counts only.
+    const contextBudget = usageMessage?.contextBudget;
+    assert.equal(contextBudget?.activePrunedToolResults, undefined);
+    const decisions = contextBudget?.compactionDecisions as
+      | Array<Record<string, unknown>>
       | undefined;
-    for (const contextBudget of [usageMessage?.contextBudget, usageEvent?.contextBudget]) {
-      assert.equal(contextBudget?.activePrunedToolResults, undefined);
-      const decisions = contextBudget?.compactionDecisions as
-        | Array<Record<string, unknown>>
-        | undefined;
-      assert.equal(
-        decisions?.some(
-          (decision) =>
-            decision.boundaryKind === 'activeFullCompact' && decision.decision === 'replaced',
-        ),
-        true,
-      );
-      assert.equal(typeof contextBudget?.highWaterRequestShapeHashBefore, 'string');
-      assert.equal(typeof contextBudget?.highWaterRequestShapeHashAfter, 'string');
-      assert.notEqual(
-        contextBudget?.highWaterRequestShapeHashAfter,
-        contextBudget?.highWaterRequestShapeHashBefore,
-      );
-    }
+    assert.equal(
+      decisions?.some(
+        (decision) =>
+          decision.boundaryKind === 'activeFullCompact' && decision.decision === 'replaced',
+      ),
+      true,
+    );
+    assert.equal(typeof contextBudget?.highWaterRequestShapeHashBefore, 'string');
+    assert.equal(typeof contextBudget?.highWaterRequestShapeHashAfter, 'string');
+    assert.notEqual(
+      contextBudget?.highWaterRequestShapeHashAfter,
+      contextBudget?.highWaterRequestShapeHashBefore,
+    );
   });
 
   test('active full compact durable recorder is invoked synchronously', () => {
@@ -8327,12 +8373,10 @@ describe('AiSdkBackend usage telemetry', () => {
       'one summarization is one record',
     );
 
-    const usageEvent = events.find((event) => event.type === 'token_usage') as
-      | (Extract<SessionEvent, { type: 'token_usage' }> & {
-          contextBudget?: Record<string, unknown>;
-        })
-      | undefined;
-    const decisions = usageEvent?.contextBudget?.compactionDecisions as
+    const usageMessage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as { contextBudget?: Record<string, unknown> } | undefined;
+    const decisions = usageMessage?.contextBudget?.compactionDecisions as
       | Array<Record<string, unknown>>
       | undefined;
     assert.equal(
@@ -8712,29 +8756,26 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.doesNotMatch(secondPrompt, /maka_active_full_compact_block/);
     assert.match(secondPrompt, /VALIDATE_ONLY_RAW_TOOL_OUTPUT/);
 
-    const usageEvent = events.find((event) => event.type === 'token_usage') as
-      | (Extract<SessionEvent, { type: 'token_usage' }> & {
-          contextBudget?: Record<string, unknown>;
-        })
+    const usageMessage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as { contextBudget?: Record<string, unknown> } | undefined;
+    const contextBudget = usageMessage?.contextBudget;
+    const decisions = contextBudget?.compactionDecisions as
+      | Array<Record<string, unknown>>
       | undefined;
-    for (const contextBudget of [usageEvent?.contextBudget]) {
-      const decisions = contextBudget?.compactionDecisions as
-        | Array<Record<string, unknown>>
-        | undefined;
-      assert.equal(
-        decisions?.some(
-          (decision) =>
-            decision.boundaryKind === 'activeFullCompact' &&
-            decision.decision === 'unchanged' &&
-            decision.reason === 'validate_only',
-        ),
-        true,
-      );
-      assert.equal(
-        contextBudget?.highWaterRequestShapeHashBefore,
-        contextBudget?.highWaterRequestShapeHashAfter,
-      );
-    }
+    assert.equal(
+      decisions?.some(
+        (decision) =>
+          decision.boundaryKind === 'activeFullCompact' &&
+          decision.decision === 'unchanged' &&
+          decision.reason === 'validate_only',
+      ),
+      true,
+    );
+    assert.equal(
+      contextBudget?.highWaterRequestShapeHashBefore,
+      contextBudget?.highWaterRequestShapeHashAfter,
+    );
   });
 
   test('normalizes cache and reasoning tokens to messages, events, and telemetry', async () => {
@@ -8879,7 +8920,10 @@ describe('AiSdkBackend usage telemetry', () => {
     assert.ok(startTrace?.data?.prefixHash);
     assert.ok(startTrace?.data?.requestShapeHash);
     assert.equal(startTrace?.data?.systemPromptHash, usageMessage?.systemPromptHash);
-    assert.equal(pricingLookupCalls, 1);
+    // Pricing is consulted for the step checkpoint and the per-step event
+    // (both through the same helper); the turn-end aggregate is suppressed
+    // when a step delta was emitted, so there is no third lookup.
+    assert.equal(pricingLookupCalls, 2);
   });
 });
 
@@ -9447,10 +9491,13 @@ describe('AiSdkBackend context budget and prompt attribution', () => {
   test('usage events include prompt segments and context budget diagnostics', async () => {
     const model = completionModel();
     const events: SessionEvent[] = [];
+    const messages: unknown[] = [];
     const backend = createTestAiSdkBackend({
       sessionId: 'session-1',
       header: header(),
-      appendMessage: async () => {},
+      appendMessage: async (message) => {
+        messages.push(message);
+      },
       connection: connection(),
       apiKey: 'sk-test',
       modelId: 'mock-model-id',
@@ -9517,8 +9564,8 @@ describe('AiSdkBackend context budget and prompt attribution', () => {
         event.type === 'token_usage',
     );
     assert.ok(usage);
-    assert.equal(usage.contextBudget?.policyName, 'test-budget');
-    assert.equal(usage.contextBudget?.droppedTurns, 1);
+    // The live per-step event carries prompt segments; the durable aggregate
+    // carries the context-budget snapshot (both describe the same single step).
     assert.equal(
       usage.promptSegments?.some((segment) => segment.kind === 'prior_history'),
       true,
@@ -9531,6 +9578,11 @@ describe('AiSdkBackend context budget and prompt attribution', () => {
       usage.promptSegments?.some((segment) => segment.kind === 'turn_tail'),
       true,
     );
+    const usageMessage = messages.find(
+      (message) => (message as { type?: string }).type === 'token_usage',
+    ) as { contextBudget?: { policyName?: string; droppedTurns?: number } } | undefined;
+    assert.equal(usageMessage?.contextBudget?.policyName, 'test-budget');
+    assert.equal(usageMessage?.contextBudget?.droppedTurns, 1);
   });
 });
 
@@ -9657,21 +9709,35 @@ describe('AiSdkBackend RunTrace', () => {
         ],
       );
       assert.equal(findFirstChangedCacheableSegment(captures[1]!, captures[0]!)?.kind, 'message');
-      const aggregate = events.find(
+      const usageEvents = events.filter(
         (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
           event.type === 'token_usage',
       );
-      assert.ok(aggregate);
+      assert.equal(usageEvents.length, 2);
       const sum = (field: keyof ProviderRequestAttemptRecord) =>
         attempts.reduce(
           (total, attempt) => total + ((attempt[field] as number | undefined) ?? 0),
           0,
         );
-      assert.equal(sum('inputTokens'), aggregate.input);
-      assert.equal(sum('outputTokens'), aggregate.output);
-      assert.equal(sum('cacheReadInputTokens'), aggregate.cacheHitInput);
-      assert.equal(sum('cacheMissInputTokens'), aggregate.cacheMissInput);
-      assert.equal(sum('cacheWriteInputTokens'), aggregate.cacheWriteInput);
+      // The live per-step deltas reconcile to the same totals as the
+      // per-physical-request ledger (sum of step deltas == prior aggregate).
+      assert.equal(usageEvents.reduce((total, event) => total + event.input, 0), sum('inputTokens'));
+      assert.equal(
+        usageEvents.reduce((total, event) => total + event.output, 0),
+        sum('outputTokens'),
+      );
+      assert.equal(
+        usageEvents.reduce((total, event) => total + (event.cacheHitInput ?? 0), 0),
+        sum('cacheReadInputTokens'),
+      );
+      assert.equal(
+        usageEvents.reduce((total, event) => total + (event.cacheMissInput ?? 0), 0),
+        sum('cacheMissInputTokens'),
+      );
+      assert.equal(
+        usageEvents.reduce((total, event) => total + (event.cacheWriteInput ?? 0), 0),
+        sum('cacheWriteInputTokens'),
+      );
     });
   }
 
@@ -12152,12 +12218,15 @@ async function runArchiveGatedReplay(input: {
 }> {
   const model = completionModel();
   const events: SessionEvent[] = [];
+  const messages: unknown[] = [];
   const archivedBodies = new Map<string, string>();
   const readRuntimeEventIds: string[] = [];
   const backend = createTestAiSdkBackend({
     sessionId: 'session-1',
     header: header(),
-    appendMessage: async () => {},
+    appendMessage: async (message) => {
+      messages.push(message);
+    },
     connection: connection(),
     apiKey: 'sk-test',
     modelId: 'mock-model-id',
@@ -12231,10 +12300,9 @@ async function runArchiveGatedReplay(input: {
 
   const prompt = JSON.stringify(compactPrompt(model));
   if (typeof prompt !== 'string') assert.fail('model prompt was not captured');
-  const usage = events.find(
-    (event): event is Extract<SessionEvent, { type: 'token_usage' }> =>
-      event.type === 'token_usage',
-  );
+  const usage = messages.find(
+    (message) => (message as { type?: string }).type === 'token_usage',
+  ) as Extract<SessionEvent, { type: 'token_usage' }> | undefined;
   return { prompt, readRuntimeEventIds, usage };
 }
 
